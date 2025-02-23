@@ -1,0 +1,370 @@
+#!/usr/bin/env python
+# real-time analysis and streaming video 
+# code by kaloyansen@gmail.com
+# music by kaloyansen@gmail.com
+# title by milko ginev
+
+import gevent
+from gevent.pywsgi import WSGIServer
+from geventwebsocket.handler import WebSocketHandler
+
+import multiprocessing
+multiprocessing.set_start_method("fork", force=True)
+from multiprocessing import Process, Lock, Manager
+
+import cv2
+import curses
+import traceback
+from flask import Flask, Response
+from flask import render_template, send_from_directory, request, redirect
+from markupsafe import escape
+import time
+import datetime
+import os
+import sys
+import select
+import ssl
+import logging
+
+logging.basicConfig(level=logging.DEBUG)
+
+title = "vrabec tv"
+server = Flask(__name__)
+
+ignore_curses = False
+with_https = False
+
+frame_count = 0
+total_frame = 0
+wheel_state = 0
+wheel_states = ['-', '/', '|', '\\']
+x_pub = 320
+
+manager = Manager()
+shared_data = manager.Namespace()
+shared_data.frame = None
+shared_data.running = True
+shared_data.fps_limit = 8
+shared_data.fps_value = 0
+frame_lock = Lock()
+
+work = '/yocto/moineau'
+cascade = cv2.CascadeClassifier(f"{work}/bird.xml")
+os.makedirs(f"{work}/dataset/positives", exist_ok=True)
+os.makedirs(f"{work}/dataset/negatives", exist_ok=True)
+
+AUDIO_DIR = os.path.join(server.static_folder, "audio")
+
+def debug_wrapper(target, *args):
+
+    try:
+        target(*args)
+    except Exception as e:
+        print(f"Error in {target.__name__}: {e}")
+        traceback.print_exc()
+
+
+def listen_keyboard(stdscr, shared_data):
+
+    stdscr.nodelay(True)
+    stdscr.timeout(100)
+    while shared_data.running:
+
+        key = stdscr.getch()
+        if key != -1:
+
+            if key == 110: # n
+
+                save_frame(shared_data.frame, "negatives")
+            elif key == 112: # p
+
+                save_frame(shared_data.frame, 'positives')
+            elif key == 27:  # escape
+
+                print("\nescape\n")
+                shared_data.running = False
+                break
+
+
+def start_curses(shared_data):
+
+    curses.wrapper(lambda stdscr: listen_keyboard(stdscr, shared_data))
+
+
+def save_frame(fr, label):
+
+    filename = f"{work}/dataset/{label}/{int(time.time())}.jpg"
+    cv2.imwrite(filename, fr)
+    print(f"saved: {filename}")
+
+
+def send_alert():
+
+    return
+    #global socket
+    #socket.emit('play_sound')
+
+
+def put_text(fr, text, position, font_scale):
+	
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    color = (22, 22, 22)
+    outcolor = (222, 222, 222)
+    thickness = 1
+    outline = 1 #  cv2.LINE_AA
+    cv2.putText(fr, text, (position[0] - 1, position[1] - 1), font, font_scale, outcolor, outline, cv2.LINE_AA)
+    cv2.putText(fr, text, (position[0] + 1, position[1] - 1), font, font_scale, outcolor, outline, cv2.LINE_AA)
+    cv2.putText(fr, text, (position[0] - 1, position[1] + 1), font, font_scale, outcolor, outline, cv2.LINE_AA)
+    cv2.putText(fr, text, (position[0] + 1, position[1] + 1), font, font_scale, outcolor, outline, cv2.LINE_AA)
+    cv2.putText(fr, text, position, font, font_scale, color, thickness, cv2.LINE_AA)
+
+
+def label_frame(fr):
+
+    global frame_count, wheel_state, total_frame, x_pub, title
+    wheel = wheel_states[wheel_state]
+    wheel_state = (wheel_state + 1) % len(wheel_states)
+
+    maintenant = datetime.datetime.now()
+    timestamp = maintenant.strftime("%H:%M:%S")
+    timestamp = f"{timestamp}.{frame_count}"
+    publicity = ' https://kaloyansen.github.io'
+# 640 x 480
+# 320 x 240
+
+    if x_pub > 0:
+        x_pub = x_pub - total_frame
+    if x_pub < 0:
+        x_pub = 0
+
+    fps_value = shared_data.fps_value
+    put_text(fr, f" {title}", (0, 12), 0.4)
+    put_text(fr, timestamp, (260, 12), 0.3)
+    put_text(fr, publicity, (x_pub, 230), 0.3)
+    put_text(fr, f"{fps_value:6.2f} Hz", (260, 230), 0.3)
+
+    return fr
+
+
+def analyze_frame(fr):
+
+    return fr
+#    sparrow = cascade.detectMultiScale(fr, scaleFactor=1.1, minNeighbors=5)
+#    if len(sparrow) > 0:
+
+#        save_frame(fr, "positives")
+#    else:
+
+#        save_frame(fr, "negatives")
+    for (x, y, w, h) in sparrow:
+        cv2.rectangle(fr, (x, y), (x + w, y + h), (255, 0, 0), 2)
+    # processed_frame = fr.copy() # cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR)
+    return fr # processed_frame
+
+
+def process_frame(fr):
+
+    global frame_count
+    analyzed_frame = analyze_frame(fr)
+    labeled_frame = label_frame(analyzed_frame)
+
+    frame_count += 1
+    if frame_count > 9:
+        frame_count = 0
+
+    return labeled_frame
+
+
+def read_stream(shared_data, frame_lock):
+
+    global total_frame
+
+    video_device = '/dev/video0'
+    cap = cv2.VideoCapture(video_device)
+    if not cap.isOpened():
+
+        print(f"error: cannot capture {video_device}")
+    else:
+
+        print(f"captured {video_device}")
+    cap.set(cv2.CAP_PROP_FPS, shared_data.fps_limit)
+
+    while shared_data.running:
+
+        start_time = time.perf_counter()
+        success, raw_frame = cap.read()
+        if not success:
+
+            continue
+        raw_frame_copy = raw_frame.copy()
+        raw_frame_copy = cv2.resize(raw_frame_copy, (320, 240)) 
+        processed_frame = process_frame(raw_frame_copy)
+        with frame_lock:
+            
+            shared_data.frame = processed_frame.copy()
+
+        total_frame += 1
+        elapsed_time = time.perf_counter() - start_time
+        # time.sleep(max(0, (1 / shared_data.fps_limit) - elapsed_time))
+
+
+def generation(shared_data, frame_lock):
+
+    prev_time = time.perf_counter()
+    while shared_data.running:
+
+        with frame_lock:
+
+            if shared_data.frame is None:
+
+                continue
+            _, jpeg = cv2.imencode('.jpg', shared_data.frame)
+
+
+            curr_time = time.perf_counter()
+            shared_data.fps_value = 1 / (curr_time - prev_time)
+            prev_time = curr_time
+        yield (b'--frame\r\n'
+               b'Content-Type: image/jpeg\r\n\r\n' + jpeg.tobytes() + b'\r\n\r\n')
+ 
+
+
+# if with_https:
+
+#    http_server = Flask(__name__)
+
+#    @http_server.before_request
+#    def redirect_to_https():
+
+#        if request.url.startswith("http://"):
+
+#            new_url = request.url.replace("http://", "https://", 1)
+#            return redirect(new_url, code=301)
+
+
+#    def run_http_server():
+
+#        serve = WSGIServer(("0.0.0.0", 80), http_server, handler_class=WebSocketHandler)
+#        serve.serve_forever()
+
+
+@server.context_processor
+def serange():
+
+    return dict(title=title)
+
+
+@server.route('/feed')
+def feed():
+
+    return Response(generation(shared_data, frame_lock), mimetype='multipart/x-mixed-replace; boundary=frame')
+
+
+@server.route('/favicon.ico')
+def favicon():
+
+    global work
+    return send_from_directory(work, 'favicon.ico', mimetype = 'image/x-icon')
+
+
+@server.route('/source_code')
+def access_source_code():
+
+    try:
+
+        with open(__file__, "r") as f:
+
+            src = f.read()
+        escaped_code = escape(src)
+        return render_template('code.html', code=escaped_code)
+    except Exception as e:
+ 
+       return f"error: {e}"
+
+
+@server.route('/')
+def index():
+
+    # send_alert()
+    try:
+
+        return render_template('index.html')
+    except Exception as e:
+
+        return f"error: {e}"
+
+
+@server.route("/sound/")
+@server.route("/sound/<path:subpath>")
+def browse(subpath=""):
+
+    full_path = os.path.join(AUDIO_DIR, subpath)
+
+    if not os.path.exists(full_path):
+        return "directory not found", 404
+
+    items = sorted(os.listdir(full_path))
+    directories = [d for d in items if os.path.isdir(os.path.join(full_path, d))]
+    songs = [f for f in items if f.endswith(".mp3")]
+
+    return render_template("music.html", directories=directories, songs=songs, current_path=subpath)
+
+
+def oldsound():
+
+    SOUND_DIR = os.path.join(server.static_folder, "audio")
+    songs = [f for f in os.listdir(SOUND_DIR) if f.endswith(".mp3")]
+    return render_template("sound.html", songs=songs)
+
+
+# @server.route("/static/audio/<filename>")
+@server.route("/sound/file/<path:filename>")
+def serve_sound(filename):
+
+    SOUND_DIR = os.path.join(server.static_folder, "audio")
+    return send_from_directory(AUDIO_DIR, filename)
+
+
+def run_server():
+
+    context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    context.load_cert_chain(
+        certfile = '/etc/letsencrypt/live/kaloyan.duckdns.org/fullchain.pem',
+        keyfile = '/etc/letsencrypt/live/kaloyan.duckdns.org/privkey.pem'
+    )
+    # context.options |= ssl.OP_NO_TLSv1 | ssl.OP_NO_TLSv1_1
+    context.set_ciphers("HIGH:!DH:!aNULL")
+    if with_https:
+
+        serve = WSGIServer(("0.0.0.0", 443), server, handler_class=WebSocketHandler, ssl_context = context)
+        serve.serve_forever()
+    else:
+
+        serve = WSGIServer(("0.0.0.0", 80), server, handler_class=WebSocketHandler)
+        serve.serve_forever()
+
+
+if __name__ == '__main__':
+
+    srv_proc = Process(target=debug_wrapper, args=(run_server,))
+    cam_proc = Process(target=debug_wrapper, args=(read_stream, shared_data, frame_lock))
+    key_proc = Process(target=debug_wrapper, args=(start_curses, shared_data))
+
+    print("starting https server")
+    srv_proc.start()
+    print("starting stream")
+    cam_proc.start()
+    if not ignore_curses:
+
+        print("starting curses keyboard listener")
+        key_proc.start()
+        key_proc.join()
+        print("terminate stream")
+        cam_proc.terminate()
+        print("terminate https server")
+        srv_proc.terminate()
+
+    cam_proc.join()
+    srv_proc.join()
+
+    print("\nall processes stopped\n")

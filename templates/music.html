@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }}</title>
+</head>
+<body>
+    <h1>musique</h1>
+
+    {% if current_path %}
+        <p><a href="{{ url_for('browse', subpath='/'.join(current_path.split('/')[:-1])) }}">..</a></p>
+    {% endif %}
+
+    <ul>
+        {% for directory in directories %}
+            <li>
+                <a href="{{ url_for('browse', subpath=current_path + '/' + directory) }}">{{ directory }}</a>
+            </li>
+        {% endfor %}
+
+        {% for song in songs %}
+            <li>
+                <a href="#" onclick="playSong('{{ url_for('serve_sound', filename=current_path + '/' + song) }}')">
+                    {{ song }}
+                </a>
+            </li>
+        {% endfor %}
+    </ul>
+
+    <audio id="audioPlayer" controls>
+        your browser does not support the audio element
+    </audio>
+
+    <script>
+        function playSong(songUrl) {
+            var audio = document.getElementById("audioPlayer");
+            audio.src = songUrl;
+            audio.play();
+        }
+    </script>
+</body>
+</html>
