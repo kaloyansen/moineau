@@ -263,8 +263,13 @@ def feed():
 @server.route('/favicon.ico')
 def favicon():
 
-    global work
-    return send_from_directory(work, 'favicon.ico', mimetype = 'image/x-icon')
+    return send_from_directory(server.static_folder, 'favicon.ico', mimetype = 'image/x-icon')
+
+
+@server.route('/robots.txt')
+def robots():
+
+    return send_from_directory(server.static_folder, 'robots.txt')
 
 
 @server.route('/source_code')
