@@ -49,7 +49,7 @@ shared_data.fps_value = 0
 frame_lock = Lock()
 
 work = '/yocto/moineau'
-cascade = cv2.CascadeClassifier(f"{work}/bird.xml")
+# cascade = cv2.CascadeClassifier(f"{work}/bird.xml")
 os.makedirs(f"{work}/dataset/positives", exist_ok=True)
 os.makedirs(f"{work}/dataset/negatives", exist_ok=True)
 
@@ -332,14 +332,15 @@ def serve_sound(filename):
 
 def run_server():
 
-    context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-    context.load_cert_chain(
-        certfile = '/etc/letsencrypt/live/kaloyan.duckdns.org/fullchain.pem',
-        keyfile = '/etc/letsencrypt/live/kaloyan.duckdns.org/privkey.pem'
-    )
-    # context.options |= ssl.OP_NO_TLSv1 | ssl.OP_NO_TLSv1_1
-    context.set_ciphers("HIGH:!DH:!aNULL")
     if with_https:
+
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        context.load_cert_chain(
+            certfile = '/etc/letsencrypt/live/kaloyan.duckdns.org/fullchain.pem',
+            keyfile = '/etc/letsencrypt/live/kaloyan.duckdns.org/privkey.pem'
+        )
+        # context.options |= ssl.OP_NO_TLSv1 | ssl.OP_NO_TLSv1_1
+        context.set_ciphers("HIGH:!DH:!aNULL")
 
         serve = WSGIServer(("0.0.0.0", 443), server, handler_class=WebSocketHandler, ssl_context = context)
         serve.serve_forever()
