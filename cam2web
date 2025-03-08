@@ -30,7 +30,7 @@ logging.basicConfig(level=logging.INFO)
 title = "vrabec tv"
 server = Flask(__name__)
 
-ignore_curses = True
+ignore_curses = False
 
 fps_limit = 11
 frame_count = 0
