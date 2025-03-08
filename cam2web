@@ -31,7 +31,6 @@ title = "vrabec tv"
 server = Flask(__name__)
 
 ignore_curses = True
-with_https = False
 
 fps_limit = 11
 frame_count = 0
@@ -203,7 +202,6 @@ def read_stream(shared_data, frame_lock):
             time.sleep(1e-2)
             continue
          
-        # raw_frame_copy = raw_frame.copy()
         raw_frame_resized = cv2.resize(raw_frame, (320, 240)) 
         processed_frame = process_frame(raw_frame_resized)
         with frame_lock:
@@ -249,26 +247,6 @@ def generation(shared_data, frame_lock):
         except Exception as e:
             print(f"Client disconnected: {e}")
             break
-
-
-
-# if with_https:
-
-#    http_server = Flask(__name__)
-
-#    @http_server.before_request
-#    def redirect_to_https():
-
-#        if request.url.startswith("http://"):
-
-#            new_url = request.url.replace("http://", "https://", 1)
-#            return redirect(new_url, code=301)
-
-
-#    def run_http_server():
-
-#        serve = WSGIServer(("0.0.0.0", 80), http_server, handler_class=WebSocketHandler)
-#        serve.serve_forever()
 
 
 @server.context_processor
@@ -355,22 +333,8 @@ def serve_sound(filename):
 
 def run_server():
 
-    if with_https:
-
-        context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-        context.load_cert_chain(
-            certfile = '/etc/letsencrypt/live/kaloyan.duckdns.org/fullchain.pem',
-            keyfile = '/etc/letsencrypt/live/kaloyan.duckdns.org/privkey.pem'
-        )
-        # context.options |= ssl.OP_NO_TLSv1 | ssl.OP_NO_TLSv1_1
-        context.set_ciphers("HIGH:!DH:!aNULL")
-
-        serve = WSGIServer(("0.0.0.0", 443), server, handler_class=WebSocketHandler, ssl_context = context)
-        serve.serve_forever()
-    else:
-
-        serve = WSGIServer(("0.0.0.0", 80), server, handler_class=WebSocketHandler)
-        serve.serve_forever()
+    serve = WSGIServer(("0.0.0.0", 80), server, handler_class=WebSocketHandler)
+    serve.serve_forever()
 
 
 if __name__ == '__main__':
@@ -379,7 +343,7 @@ if __name__ == '__main__':
     cam_proc = Process(target=debug_wrapper, args=(read_stream, shared_data, frame_lock))
     key_proc = Process(target=debug_wrapper, args=(start_curses, shared_data))
 
-    print("starting https server")
+    print("starting server")
     srv_proc.start()
     print("starting stream")
     cam_proc.start()
@@ -390,7 +354,7 @@ if __name__ == '__main__':
         key_proc.join()
         print("terminate stream")
         cam_proc.terminate()
-        print("terminate https server")
+        print("terminate server")
         srv_proc.terminate()
 
     cam_proc.join()
