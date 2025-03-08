@@ -170,10 +170,10 @@ cython_debug/
 # PyPI configuration file
 .pypirc
 
-# mg backup files
+# backup files
 *~
+cp_*
 
 # static files
 static/audio/
 dataset/
-
