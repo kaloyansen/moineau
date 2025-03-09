@@ -35,6 +35,7 @@ ignore_curses = False
 fps_limit = 10
 jpeg_quality = 66
 workers = 8
+port = 8080
 
 frame_count = 0
 total_frame = 0
@@ -187,14 +188,14 @@ def read_stream(shared_data, frame_lock):
 
         if time.perf_counter() - read_count < 1. / fps_limit:
 
-            time.sleep(1e-2)
+            gevent.sleep(1e-2)
             continue
 
         success, raw_frame = cap.read()
         if not success:
 
             read_count = time.perf_counter()
-            time.sleep(1e-2)
+            gevent.sleep(1e-2)
             continue
          
         raw_frame_copy = cv2.resize(raw_frame, (320, 240)) 
@@ -217,19 +218,21 @@ def generation(shared_data, frame_lock):
 
         if time.perf_counter() - gen_count < 1. / fps_limit:
 
-            time.sleep(1e-2)
+            gevent.sleep(1e-2)
             continue
 
         with frame_lock:
 
             if shared_data.frame is None:
 
-                time.sleep(1e-2)
+                print("frame is None")
+                gevent.sleep(1e-2)
                 continue
-            if last_frame is not None and (shared_data.frame == last_frame).all():
+            # if last_frame is not None and np.array_equal(shared_data.frame, last_frame):
 
-                time.sleep(1e-2)
-                continue
+            #     print("frame repeats")
+            #     gevent.sleep(1e-2)
+            #     continue
 
             last_frame = shared_data.frame.copy()
 
@@ -330,13 +333,12 @@ def serve_sound(filename):
 
 def run_server():
 
-    serve = WSGIServer(("0.0.0.0", 80), server, handler_class=WebSocketHandler)
+    serve = WSGIServer(("0.0.0.0", port), server, handler_class=WebSocketHandler)
     serve.serve_forever()
 
 
 if __name__ == '__main__':
 
-    ignore_curses = True
     pool = Pool(workers)
     frame_lock = gevent.lock.Semaphore()
 
@@ -361,7 +363,6 @@ if __name__ == '__main__':
 
         gevent.sleep(0.5)
     pool.kill()
-
     print("\nall tasks stopped\n")
 
 
