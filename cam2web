@@ -300,6 +300,7 @@ def index():
             return f"error: {e}"
     else:
 
+        print("\nban\n")
         ip_ban.add()
 
 
