@@ -16,19 +16,22 @@ import cv2
 
 from flask import Flask, Response
 from flask import render_template, send_from_directory, request, redirect
+from flask_ipban import IpBan
+
 from markupsafe import escape
 import time
 import datetime
 import os
 import sys
 import select
-import ssl
 import logging
 
 logging.basicConfig(level=logging.INFO)
 
 title = "vrabec tv"
 server = Flask(__name__)
+ip_ban = IpBan(ban_seconds=200)
+ip_ban.init_app(server)
 
 fps_limit = 10
 jpeg_quality = 66
@@ -351,6 +354,7 @@ if __name__ == '__main__':
     pool.spawn(debug_wrapper, read_stream, shared_data, frame_lock)
     print("starting keyboard listener")
     pool.spawn(debug_wrapper, keyboard_listener, shared_data)
+    print("enter 'q' to quit the application")
 
     while shared_data.running:
 
