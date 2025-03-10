@@ -1,0 +1,7 @@
+regex:
+  - ^/\.well-known/
+  - ^/robots\.txt$
+  - ^/favicon\.ico$
+  - ^/feed$
+  - ^/source_code$
+  - ^/sound$

@@ -5,4 +5,5 @@ echo initializing virtual envirenment
 source venv/bin/activate
 echo starting application
 ./cam2web
+echo have a nice day
 

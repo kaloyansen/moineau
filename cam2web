@@ -29,14 +29,16 @@ import logging
 logging.basicConfig(level=logging.INFO)
 
 title = "vrabec tv"
+fps_limit = 10
+jpeg_quality = 100
+workers = 8
+port = 8080
+
 server = Flask(__name__)
 ip_ban = IpBan(ban_seconds=200)
 ip_ban.init_app(server)
-
-fps_limit = 10
-jpeg_quality = 66
-workers = 8
-port = 8080
+ip_ban.load_allowed()
+ip_ban.load_nuisances()
 
 frame_count = 0
 total_frame = 0
@@ -288,12 +290,17 @@ def access_source_code():
 def index():
 
     # send_alert()
-    try:
+    if request.method == 'GET':
 
-        return render_template('index.html')
-    except Exception as e:
+        try:
 
-        return f"error: {e}"
+            return render_template('index.html')
+        except Exception as e:
+
+            return f"error: {e}"
+    else:
+
+        ip_ban.add()
 
 
 @server.route("/sound/")
