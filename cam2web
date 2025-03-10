@@ -30,8 +30,6 @@ logging.basicConfig(level=logging.INFO)
 title = "vrabec tv"
 server = Flask(__name__)
 
-ignore_curses = False
-
 fps_limit = 10
 jpeg_quality = 66
 workers = 8
@@ -80,11 +78,6 @@ def keyboard_listener(shared_data):
         gevent.sleep(0.1)  # Yield control back to gevent
 
 
-def start_curses(shared_data):
-
-    curses.wrapper(lambda stdscr: listen_keyboard(stdscr, shared_data))
-
-
 def save_frame(fr, label):
 
     filename = f"{work}/dataset/{label}/{int(time.time())}.jpg"
@@ -122,7 +115,7 @@ def label_frame(fr):
     maintenant = datetime.datetime.now()
     timestamp = maintenant.strftime("%H:%M:%S")
     timestamp = f"{timestamp}.{frame_count}"
-    publicity = ' https://kaloyansen.github.io'
+    publicity = ' https://github.com/kaloyansen/moineau'
 # 640 x 480
 # 320 x 240
 
