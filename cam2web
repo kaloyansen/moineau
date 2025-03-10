@@ -26,16 +26,16 @@ import sys
 import select
 import logging
 
-logging.basicConfig(level=logging.INFO)
-
 title = "vrabec tv"
 fps_limit = 10
 jpeg_quality = 100
 workers = 8
 port = 8080
 
+logging.basicConfig(level=logging.INFO)
+
 server = Flask(__name__)
-ip_ban = IpBan(ban_seconds=200)
+ip_ban = IpBan(ban_seconds = 360)
 ip_ban.init_app(server)
 ip_ban.load_allowed()
 ip_ban.load_nuisances()
@@ -48,8 +48,8 @@ x_pub = 320
 
 work = '/yocto/moineau'
 # cascade = cv2.CascadeClassifier(f"{work}/bird.xml")
-os.makedirs(f"{work}/dataset/positives", exist_ok=True)
-os.makedirs(f"{work}/dataset/negatives", exist_ok=True)
+os.makedirs(f"{work}/dataset/positives", exist_ok = True)
+os.makedirs(f"{work}/dataset/negatives", exist_ok = True)
 
 AUDIO_DIR = os.path.join(server.static_folder, "audio")
 
@@ -141,7 +141,7 @@ def label_frame(fr):
 def analyze_frame(fr):
 
     return fr
-#    sparrow = cascade.detectMultiScale(fr, scaleFactor=1.1, minNeighbors=5)
+#    sparrow = cascade.detectMultiScale(fr, scaleFactor = 1.1, minNeighbors = 5)
 #    if len(sparrow) > 0:
 
 #        save_frame(fr, "positives")
@@ -250,13 +250,13 @@ def generation(shared_data, frame_lock):
 @server.context_processor
 def serange():
 
-    return dict(title=title)
+    return dict(title = title)
 
 
 @server.route('/feed')
 def feed():
 
-    return Response(generation(shared_data, frame_lock), mimetype='multipart/x-mixed-replace; boundary=frame')
+    return Response(generation(shared_data, frame_lock), mimetype = 'multipart/x-mixed-replace; boundary=frame')
 
 
 @server.route('/favicon.ico')
@@ -280,7 +280,7 @@ def access_source_code():
 
             src = f.read()
         escaped_code = escape(src)
-        return render_template('code.html', code=escaped_code)
+        return render_template('code.html', code = escaped_code)
     except Exception as e:
  
        return f"error: {e}"
@@ -305,7 +305,7 @@ def index():
 
 @server.route("/sound/")
 @server.route("/sound/<path:subpath>")
-def browse(subpath=""):
+def browse(subpath = ""):
 
     full_path = os.path.join(AUDIO_DIR, subpath)
 
@@ -316,14 +316,14 @@ def browse(subpath=""):
     directories = [d for d in items if os.path.isdir(os.path.join(full_path, d))]
     songs = [f for f in items if f.endswith(".mp3")]
 
-    return render_template("music.html", directories=directories, songs=songs, current_path=subpath)
+    return render_template("music.html", directories = directories, songs = songs, current_path = subpath)
 
 
 def oldsound():
 
     SOUND_DIR = os.path.join(server.static_folder, "audio")
     songs = [f for f in os.listdir(SOUND_DIR) if f.endswith(".mp3")]
-    return render_template("sound.html", songs=songs)
+    return render_template("sound.html", songs = songs)
 
 
 # @server.route("/static/audio/<filename>")
@@ -336,7 +336,7 @@ def serve_sound(filename):
 
 def run_server():
 
-    serve = WSGIServer(("0.0.0.0", port), server, handler_class=WebSocketHandler)
+    serve = WSGIServer(("0.0.0.0", port), server, handler_class = WebSocketHandler)
     serve.serve_forever()
 
 
