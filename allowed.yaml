@@ -6,4 +6,3 @@ regex:
   - ^/source_code$
   - ^/sound/.*$
   - ^/client_counter$
-  - ^/ban$

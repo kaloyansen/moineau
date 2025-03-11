@@ -177,3 +177,5 @@ cp_*
 # static files
 static/audio/
 dataset/
+ban/
+log/

@@ -22,6 +22,7 @@ from flask import render_template, send_from_directory, request, redirect
 from flask_ipban import IpBan
 
 from markupsafe import escape
+import numpy as np
 import time
 import datetime
 import os
@@ -35,8 +36,6 @@ jpeg_quality = 66
 workers = 8
 port = 8080
 
-logging.basicConfig(level=logging.INFO)
-
 work = os.getenv("MOINEAU")
 ban_count = int(os.getenv("IP_BAN_LIST_COUNT"))
 ban_seconds = int(os.getenv("IP_BAN_LIST_SECONDS"))
@@ -47,9 +46,10 @@ server.secret_key = os.environ.get("FLASK_SECRET_KEY")
 os.makedirs(f"{work}/dataset/positives", exist_ok = True)
 os.makedirs(f"{work}/dataset/negatives", exist_ok = True)
 os.makedirs(f"{work}/ban", exist_ok = True)
+os.makedirs(f"{work}/log", exist_ok = True)
 
-#ban_file = f"{work}/ban/banned_ip.txt"
-#ip_ban = HardIpBan(server, ip_file = ban_file, ban_seconds = 360)
+logging.basicConfig(filename = f"{work}/log/log", level = logging.INFO)
+
 ip_ban = IpBan(ban_count = ban_count, ban_seconds = ban_seconds, persist = True, record_dir = f"{work}/ban")
 ip_ban.init_app(server)
 ip_ban.load_allowed()
@@ -60,6 +60,7 @@ total_frame = 0
 wheel_state = 0
 wheel_states = ['-', '/', '|', '\\']
 x_pub = 320
+sleeping = 1e-2
 
 AUDIO_DIR = os.path.join(server.static_folder, "audio")
 
@@ -70,7 +71,7 @@ def debug_wrapper(func, *args):
         func(*args)
     except Exception as e:
 
-        print(f"Error in function {func.__name__}: {e}")
+        server.logger.error(f"error in {func.__name__}: {e}")
 
 
 def keyboard_listener(shared_data):
@@ -82,7 +83,6 @@ def keyboard_listener(shared_data):
             key = sys.stdin.read(1)
             if key == 'q':
 
-                print("\nescape")
                 shared_data.running = False
             elif key == 'n':  # Negative frame
 
@@ -97,7 +97,7 @@ def save_frame(fr, label):
 
     filename = f"{work}/dataset/{label}/{int(time.time())}.jpg"
     cv2.imwrite(filename, fr)
-    print(f"saved: {filename}")
+    server.logger.info(f"saved: {filename}")
 
 
 def send_alert():
@@ -186,24 +186,24 @@ def read_stream(shared_data, bs_lock):
     cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
     if not cap.isOpened():
 
-        print(f"error: cannot capture {video_device}")
+        server.logger.error(f"error: cannot capture {video_device}")
     else:
 
-        print(f"captured {video_device}")
+        server.logger.info(f"captured {video_device}")
 
     read_count = time.perf_counter()
     while shared_data.running:
 
         if time.perf_counter() - read_count < 1. / fps_limit:
 
-            gevent.sleep(1e-2)
+            gevent.sleep(sleeping)
             continue
 
         success, raw_frame = cap.read()
         if not success:
 
             read_count = time.perf_counter()
-            gevent.sleep(1e-2)
+            gevent.sleep(sleeping)
             continue
          
         raw_frame_copy = cv2.resize(raw_frame, (320, 240)) 
@@ -226,20 +226,20 @@ def generation(shared_data, bs_lock):
 
         if time.perf_counter() - gen_count < 1. / fps_limit:
 
-            gevent.sleep(1e-2)
+            gevent.sleep(sleeping)
             continue
 
         with bs_lock:
 
             if shared_data.frame is None:
 
-                print("frame is None")
-                gevent.sleep(1e-2)
+                server.logger.warning("frame is None")
+                gevent.sleep(sleeping)
                 continue
-            # if last_frame is not None and np.array_equal(shared_data.frame, last_frame):
+            #if last_frame is not None and np.array_equal(shared_data.frame, last_frame):
 
-            #     print("frame repeats")
-            #     gevent.sleep(1e-2)
+                #server.logger.warning("frame repeats")
+            #     gevent.sleep(sleeping)
             #     continue
 
             last_frame = shared_data.frame.copy()
@@ -253,7 +253,7 @@ def generation(shared_data, bs_lock):
             yield (b'--frame\r\n'
                    b'Content-Type: image/jpeg\r\n\r\n' + jpeg.tobytes() + b'\r\n\r\n')
         except Exception as e:
-            print(f"Client disconnected: {e}")
+            server.logger.warning(f"client disconnected: {e}")
             break
 
 
@@ -403,18 +403,22 @@ if __name__ == '__main__':
 
     shared_data = SharedData()
 
-    print("starting server")
+    server.logger.info("starting server")
     pool.spawn(debug_wrapper, run_server)
-    print("starting stream")
+    server.logger.info("starting stream")
     pool.spawn(debug_wrapper, read_stream, shared_data, bs_lock)
-    print("starting keyboard listener")
+    server.logger.info("starting keyboard listener")
     pool.spawn(debug_wrapper, keyboard_listener, shared_data)
-    print("enter 'q' to quit the application")
+    server.logger.info(f"ban_count {ip_ban.ban_count}")
+    server.logger.info(f"ban_seconds {ip_ban.ban_seconds}")
+    server.logger.info(f"ip_ban_list {ip_ban._ip_ban_list}")
+    server.logger.info("enter 'q' to quit the application")
 
     while shared_data.running:
 
         gevent.sleep(0.5)
+    server.logger.warning("stop signal detected\n")
     pool.kill()
-    print("\nall tasks stopped\n")
+    server.logger.info("all tasks stopped\n")
 
 
