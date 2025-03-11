@@ -1,0 +1,5 @@
+# security.txt - security information for the website
+
+Contact: kaloyansen@gmail.com
+Acknowledgments: https://kaloyansen.github.io
+Preferred-Languages: en, fr, bg

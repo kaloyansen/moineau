@@ -1,7 +1,9 @@
 regex:
-  - ^/\.well-known/
+  - ^/\.well-known/security\.txt$
   - ^/robots\.txt$
   - ^/favicon\.ico$
   - ^/feed$
   - ^/source_code$
-  - ^/sound$
+  - ^/sound/.*$
+  - ^/client_counter$
+  - ^/ban$

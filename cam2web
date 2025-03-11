@@ -8,14 +8,17 @@ monkey.patch_all()
 
 from gevent.pool import Pool
 from gevent.pywsgi import WSGIServer
+from geventwebsocket.websocket import WebSocket
 from geventwebsocket.handler import WebSocketHandler
+from gevent.lock import BoundedSemaphore, Semaphore
 import gevent
-import gevent.lock
 
 import cv2
 
 from flask import Flask, Response
 from flask import render_template, send_from_directory, request, redirect
+
+# from hard_ipban import HardIpBan
 from flask_ipban import IpBan
 
 from markupsafe import escape
@@ -28,14 +31,26 @@ import logging
 
 title = "vrabec tv"
 fps_limit = 10
-jpeg_quality = 100
+jpeg_quality = 66
 workers = 8
 port = 8080
 
 logging.basicConfig(level=logging.INFO)
 
+work = os.getenv("MOINEAU")
+ban_count = int(os.getenv("IP_BAN_LIST_COUNT"))
+ban_seconds = int(os.getenv("IP_BAN_LIST_SECONDS"))
+
 server = Flask(__name__)
-ip_ban = IpBan(ban_seconds = 360)
+server.secret_key = os.environ.get("FLASK_SECRET_KEY")
+# cascade = cv2.CascadeClassifier(f"{work}/bird.xml")
+os.makedirs(f"{work}/dataset/positives", exist_ok = True)
+os.makedirs(f"{work}/dataset/negatives", exist_ok = True)
+os.makedirs(f"{work}/ban", exist_ok = True)
+
+#ban_file = f"{work}/ban/banned_ip.txt"
+#ip_ban = HardIpBan(server, ip_file = ban_file, ban_seconds = 360)
+ip_ban = IpBan(ban_count = ban_count, ban_seconds = ban_seconds, persist = True, record_dir = f"{work}/ban")
 ip_ban.init_app(server)
 ip_ban.load_allowed()
 ip_ban.load_nuisances()
@@ -45,11 +60,6 @@ total_frame = 0
 wheel_state = 0
 wheel_states = ['-', '/', '|', '\\']
 x_pub = 320
-
-work = '/yocto/moineau'
-# cascade = cv2.CascadeClassifier(f"{work}/bird.xml")
-os.makedirs(f"{work}/dataset/positives", exist_ok = True)
-os.makedirs(f"{work}/dataset/negatives", exist_ok = True)
 
 AUDIO_DIR = os.path.join(server.static_folder, "audio")
 
@@ -167,7 +177,7 @@ def process_frame(fr):
     return labeled_frame
 
 
-def read_stream(shared_data, frame_lock):
+def read_stream(shared_data, bs_lock):
 
     global total_frame
 
@@ -198,7 +208,7 @@ def read_stream(shared_data, frame_lock):
          
         raw_frame_copy = cv2.resize(raw_frame, (320, 240)) 
         processed_frame = process_frame(raw_frame_copy)
-        with frame_lock:
+        with bs_lock:
 
             shared_data.frame = processed_frame.copy()
 
@@ -208,7 +218,7 @@ def read_stream(shared_data, frame_lock):
     cap.release()
 
 
-def generation(shared_data, frame_lock):
+def generation(shared_data, bs_lock):
 
     gen_count = time.perf_counter()
     last_frame = None
@@ -219,7 +229,7 @@ def generation(shared_data, frame_lock):
             gevent.sleep(1e-2)
             continue
 
-        with frame_lock:
+        with bs_lock:
 
             if shared_data.frame is None:
 
@@ -256,7 +266,7 @@ def serange():
 @server.route('/feed')
 def feed():
 
-    return Response(generation(shared_data, frame_lock), mimetype = 'multipart/x-mixed-replace; boundary=frame')
+    return Response(generation(shared_data, bs_lock), mimetype = 'multipart/x-mixed-replace; boundary=frame')
 
 
 @server.route('/favicon.ico')
@@ -271,37 +281,39 @@ def robots():
     return send_from_directory(server.static_folder, 'robots.txt')
 
 
+@server.route('/.well-known/security.txt')
+def security_txt():
+
+    return send_from_directory(server.static_folder, 'security.txt')
+
+
 @server.route('/source_code')
 def access_source_code():
 
     try:
 
-        with open(__file__, "r") as f:
+        file_path = os.path.abspath(__file__)
+        with open(file_path, "r") as f:
 
             src = f.read()
         escaped_code = escape(src)
         return render_template('code.html', code = escaped_code)
     except Exception as e:
  
-       return f"error: {e}"
+        server.logger.error(f"error while reading source code: {e}")
+        return f"Error: {e}", 500
 
 
 @server.route('/')
 def index():
 
     # send_alert()
-    if request.method == 'GET':
+    try:
 
-        try:
+        return render_template('index.html')
+    except Exception as e:
 
-            return render_template('index.html')
-        except Exception as e:
-
-            return f"error: {e}"
-    else:
-
-        print("\nban\n")
-        ip_ban.add()
+        return f"error: {e}"
 
 
 @server.route("/sound/")
@@ -309,10 +321,9 @@ def index():
 def browse(subpath = ""):
 
     full_path = os.path.join(AUDIO_DIR, subpath)
-
     if not os.path.exists(full_path):
-        return "directory not found", 404
 
+        return "pass again in an hour", 200
     items = sorted(os.listdir(full_path))
     directories = [d for d in items if os.path.isdir(os.path.join(full_path, d))]
     songs = [f for f in items if f.endswith(".mp3")]
@@ -335,6 +346,41 @@ def serve_sound(filename):
     return send_from_directory(AUDIO_DIR, filename)
 
 
+@server.before_request
+def before_request():
+
+    client_ip = request.remote_addr
+    if request.method != 'GET':
+
+        ip_ban.block(client_ip)
+        server.logger.warning(f"save {client_ip} as banned")
+#        return "you have been added to the black list", 403
+    # elif ip_ban.is_banned(client_ip):
+
+    #     server.logger.warning(f"{client_ip} is in the list of banned")
+    #     return "you are already in the black list", 403
+    else:
+
+        client_ip = request.remote_addr
+        with bs_lock:
+
+            client_set.add(client_ip)
+
+
+@server.after_request
+def after_request(response):
+
+    return response
+
+
+@server.route('/client_counter')
+def get_clients():
+
+    with bs_lock:
+
+        return f"{len(client_set)} {client_set}"
+
+
 def run_server():
 
     serve = WSGIServer(("0.0.0.0", port), server, handler_class = WebSocketHandler)
@@ -344,7 +390,8 @@ def run_server():
 if __name__ == '__main__':
 
     pool = Pool(workers)
-    frame_lock = gevent.lock.Semaphore()
+    bs_lock = BoundedSemaphore()
+    client_set = set()
 
     class SharedData:
 
@@ -359,7 +406,7 @@ if __name__ == '__main__':
     print("starting server")
     pool.spawn(debug_wrapper, run_server)
     print("starting stream")
-    pool.spawn(debug_wrapper, read_stream, shared_data, frame_lock)
+    pool.spawn(debug_wrapper, read_stream, shared_data, bs_lock)
     print("starting keyboard listener")
     pool.spawn(debug_wrapper, keyboard_listener, shared_data)
     print("enter 'q' to quit the application")
