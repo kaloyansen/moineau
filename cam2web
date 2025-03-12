@@ -13,14 +13,12 @@ from geventwebsocket.handler import WebSocketHandler
 from gevent.lock import BoundedSemaphore, Semaphore
 import gevent
 
-import cv2
-
 from flask import Flask, Response
-from flask import render_template, send_from_directory, request, redirect
-
-# from hard_ipban import HardIpBan
+from flask import request, redirect
+from flask import render_template, send_from_directory, url_for
 from flask_ipban import IpBan
 
+import cv2
 from markupsafe import escape
 import numpy as np
 import time
@@ -48,7 +46,9 @@ os.makedirs(f"{work}/dataset/negatives", exist_ok = True)
 os.makedirs(f"{work}/ban", exist_ok = True)
 os.makedirs(f"{work}/log", exist_ok = True)
 
-logging.basicConfig(filename = f"{work}/log/log", level = logging.INFO)
+logfile = os.getenv("FLASK_LOG_FILE")
+
+logging.basicConfig(filename = f"{logfile}", level = logging.INFO)
 
 ip_ban = IpBan(ban_count = ban_count, ban_seconds = ban_seconds, persist = True, record_dir = f"{work}/ban")
 ip_ban.init_app(server)
@@ -346,6 +346,32 @@ def serve_sound(filename):
     return send_from_directory(AUDIO_DIR, filename)
 
 
+@server.route('/sitemap.xml', methods=['GET'])
+def sitemap():
+    pages = []
+    last_modified = datetime.datetime.now().strftime("%Y-%m-%d")
+
+    for rule in server.url_map.iter_rules():
+
+        if "GET" in rule.methods and len(rule.arguments) == 0:  # Ignore dynamic routes
+
+            url = url_for(rule.endpoint, _external=True)
+            pages.append(f"""
+                <url>
+                    <loc>{url}</loc>
+                    <lastmod>{last_modified}</lastmod>
+                    <changefreq>weekly</changefreq>
+                    <priority>0.5</priority>
+                </url>""")
+
+    sitemap_xml = f"""<?xml version="1.0" encoding="UTF-8"?>
+    <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+        {''.join(pages)}
+    </urlset>"""
+
+    return Response(sitemap_xml, mimetype = "application/xml")
+
+
 @server.before_request
 def before_request():
 
@@ -378,7 +404,7 @@ def get_clients():
 
     with bs_lock:
 
-        return f"{len(client_set)} {client_set}"
+        return f"{len(client_set)}"
 
 
 def run_server():
