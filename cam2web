@@ -32,7 +32,7 @@ jpeg_quality = 66
 workers = 8
 port = 8080
 
-work = os.getenv("MOINEAU")
+work = os.getenv("FLASK_WORK")
 ban_count = int(os.getenv("IP_BAN_LIST_COUNT"))
 ban_seconds = int(os.getenv("IP_BAN_LIST_SECONDS"))
 
