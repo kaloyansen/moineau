@@ -26,27 +26,31 @@ import sys
 import select
 import logging
 
-title = "vrabec tv"
 fps_limit = 10
 jpeg_quality = 66
 workers = 8
 port = 8080
+log_to_file = False
 
-work = os.getenv("FLASK_WORK")
+work = os.getenv("FLASK_WORK_DIRECTORY")
+title = os.getenv("FLASK_TITLE")
 ban_count = int(os.getenv("IP_BAN_LIST_COUNT"))
 ban_seconds = int(os.getenv("IP_BAN_LIST_SECONDS"))
 
 server = Flask(__name__)
 server.secret_key = os.environ.get("FLASK_SECRET_KEY")
-# cascade = cv2.CascadeClassifier(f"{work}/bird.xml")
 os.makedirs(f"{work}/dataset/positives", exist_ok = True)
 os.makedirs(f"{work}/dataset/negatives", exist_ok = True)
 os.makedirs(f"{work}/ban", exist_ok = True)
 os.makedirs(f"{work}/log", exist_ok = True)
 
+cascade1 = cv2.CascadeClassifier(f"{work}/cascade/bird1.xml")
+cascade2 = cv2.CascadeClassifier(f"{work}/cascade/bird2.xml")
+
 logfile = os.getenv("FLASK_LOG_FILE")
 
-logging.basicConfig(filename = f"{logfile}", level = logging.INFO)
+if log_to_file: logging.basicConfig(filename = f"{logfile}", level = logging.INFO)
+else: logging.basicConfig(level = logging.INFO)
 
 ip_ban = IpBan(ban_count = ban_count, ban_seconds = ban_seconds, persist = True, record_dir = f"{work}/ban")
 ip_ban.init_app(server)
@@ -121,9 +125,8 @@ def put_text(fr, text, position, font_scale):
 
 def label_frame(fr):
 
-    global frame_count, wheel_state, total_frame, x_pub, title
-    wheel = wheel_states[wheel_state]
-    wheel_state = (wheel_state + 1) % len(wheel_states)
+    global total_frame, x_pub, title
+    last_modified = datetime.datetime.now().strftime("%Y-%m-%d")
 
     maintenant = datetime.datetime.now()
     timestamp = maintenant.strftime("%H:%M:%S")
@@ -148,17 +151,30 @@ def label_frame(fr):
 
 def analyze_frame(fr):
 
-    return fr
-#    sparrow = cascade.detectMultiScale(fr, scaleFactor = 1.1, minNeighbors = 5)
+    # return fr
+    global wheel_state, wheel_states
+
+    sparrow1 = cascade1.detectMultiScale(fr, scaleFactor = 1.1, minNeighbors = 5, minSize=(30, 30))
+    sparrow2 = cascade2.detectMultiScale(fr, scaleFactor = 1.1, minNeighbors = 5, minSize=(30, 30))
 #    if len(sparrow) > 0:
 
 #        save_frame(fr, "positives")
 #    else:
 
 #        save_frame(fr, "negatives")
-    for (x, y, w, h) in sparrow:
-        cv2.rectangle(fr, (x, y), (x + w, y + h), (255, 0, 0), 2)
-    # processed_frame = fr.copy() # cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR)
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    wheel = wheel_states[wheel_state] + f" {len(sparrow1)}"
+    wheel_state = (wheel_state + 1) % len(wheel_states)
+	
+    for (x, y, w, h) in sparrow1:
+
+        cv2.rectangle(fr, (x, y), (x + w, y + h), (255, 255, 0), 2)
+        cv2.putText(fr, wheel, (x, y + 12), font, 0.5, (0, 255, 255), 2, cv2.LINE_AA)
+    for (x, y, w, h) in sparrow2:
+
+        cv2.rectangle(fr, (x, y), (x + w, y + h), (255, 255, 0), 2)
+        cv2.putText(fr, 'bird2', (x, y - 2), font, 0.5, (0, 255, 255), 2, cv2.LINE_AA)
+        
     return fr # processed_frame
 
 
@@ -427,20 +443,25 @@ if __name__ == '__main__':
 
     shared_data = SharedData()
 
+    timestamp = datetime.datetime.now().strftime("%H:%M:%S")
     server.logger.info("starting server")
+    server.logger.info(timestamp)
+
     pool.spawn(debug_wrapper, run_server)
     server.logger.info("starting stream")
+
     pool.spawn(debug_wrapper, read_stream, shared_data, bs_lock)
     server.logger.info("starting keyboard listener")
+
     pool.spawn(debug_wrapper, keyboard_listener, shared_data)
-    server.logger.info(f"ban_count {ip_ban.ban_count}")
-    server.logger.info(f"ban_seconds {ip_ban.ban_seconds}")
-    server.logger.info(f"ip_ban_list {ip_ban._ip_ban_list}")
-    server.logger.info("enter 'q' to quit the application")
+    server.logger.info(f"ban_count {ip_ban.ban_count} ban_seconds {ip_ban.ban_seconds}\n")
+    server.logger.info("\nip_ban_list: ".join(ip_ban._ip_ban_list))
+    server.logger.info("enter 'q' to quit the application\n")
 
     while shared_data.running:
 
         gevent.sleep(0.5)
+    # # # ## # # ## # # ## # # ## # # ## # # ## # # ## # # ## # # #
     server.logger.warning("stop signal detected\n")
     pool.kill()
     server.logger.info("all tasks stopped\n")
