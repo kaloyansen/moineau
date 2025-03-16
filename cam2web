@@ -17,6 +17,7 @@ from flask import render_template, send_from_directory, url_for
 from flask_ipban import IpBan
 
 import cv2
+
 from markupsafe import escape
 import numpy as np
 import time
@@ -27,7 +28,7 @@ import select
 import logging
 
 fps_limit = 10
-jpeg_quality = 66
+jpeg_quality = 100
 workers = 8
 port = 8080
 log_to_file = False
@@ -49,8 +50,12 @@ cascade2 = cv2.CascadeClassifier(f"{work}/cascade/bird2.xml")
 
 logfile = os.getenv("FLASK_LOG_FILE")
 
-if log_to_file: logging.basicConfig(filename = f"{logfile}", level = logging.INFO)
-else: logging.basicConfig(level = logging.INFO)
+if log_to_file:
+
+    logging.basicConfig(filename = f"{logfile}", level = logging.INFO)
+else:
+
+    logging.basicConfig(level = logging.INFO, encoding = 'utf-8')
 
 ip_ban = IpBan(ban_count = ban_count, ban_seconds = ban_seconds, persist = True, record_dir = f"{work}/ban")
 ip_ban.init_app(server)
@@ -76,6 +81,19 @@ def debug_wrapper(func, *args):
         server.logger.error(f"error in {func.__name__}: {e}")
 
 
+def is_not_ascii(mot):
+
+    for c in mot:
+
+        if 0 <= ord(c) <= 127:
+
+            continue
+        else:
+
+            return True
+    return False
+
+
 def keyboard_listener(shared_data):
 
     while shared_data.running:
@@ -92,6 +110,12 @@ def keyboard_listener(shared_data):
             elif key == 'p':  # Positive frame
 
                 save_frame(shared_data.frame, "positives")
+            elif key == 'c':  # Positive frame
+
+                os.system('clear')
+            elif key == 'r':  # Positive frame
+
+                os.system('reset')
         gevent.sleep(0.1)  # Yield control back to gevent
 
 
@@ -151,11 +175,11 @@ def label_frame(fr):
 
 def analyze_frame(fr):
 
-    # return fr
     global wheel_state, wheel_states
 
-    sparrow1 = cascade1.detectMultiScale(fr, scaleFactor = 1.1, minNeighbors = 5, minSize=(30, 30))
-    sparrow2 = cascade2.detectMultiScale(fr, scaleFactor = 1.1, minNeighbors = 5, minSize=(30, 30))
+    gray = cv2.cvtColor(fr, cv2.COLOR_BGR2GRAY)
+    sparrow1 = cascade1.detectMultiScale(gray, scaleFactor = 1.1, minNeighbors = 5, minSize=(30, 30))
+    sparrow2 = cascade2.detectMultiScale(gray, scaleFactor = 1.1, minNeighbors = 5, minSize=(30, 30))
 #    if len(sparrow) > 0:
 
 #        save_frame(fr, "positives")
@@ -163,17 +187,19 @@ def analyze_frame(fr):
 
 #        save_frame(fr, "negatives")
     font = cv2.FONT_HERSHEY_SIMPLEX
-    wheel = wheel_states[wheel_state] + f" {len(sparrow1)}"
+    wheel = wheel_states[wheel_state] # + f" {len(sparrow1)}"
     wheel_state = (wheel_state + 1) % len(wheel_states)
-	
+
+    spindex = 0
     for (x, y, w, h) in sparrow1:
 
         cv2.rectangle(fr, (x, y), (x + w, y + h), (255, 255, 0), 2)
-        cv2.putText(fr, wheel, (x, y + 12), font, 0.5, (0, 255, 255), 2, cv2.LINE_AA)
+        cv2.putText(fr, f"{spindex} {wheel}", (x, y + 12), font, 0.5, (0, 255, 255), 2, cv2.LINE_AA)
+        spindex += 1
     for (x, y, w, h) in sparrow2:
 
         cv2.rectangle(fr, (x, y), (x + w, y + h), (255, 255, 0), 2)
-        cv2.putText(fr, 'bird2', (x, y - 2), font, 0.5, (0, 255, 255), 2, cv2.LINE_AA)
+        cv2.putText(fr, 'bird', (x, y - 2), font, 0.5, (0, 255, 255), 2, cv2.LINE_AA)
         
     return fr # processed_frame
 
@@ -315,10 +341,10 @@ def access_source_code():
     except Exception as e:
  
         server.logger.error(f"error while reading source code: {e}")
-        return f"Error: {e}", 500
+        return f"error: {e}", 500
 
 
-@server.route('/')
+@server.route('/', methods = ['GET'])
 def index():
 
     # send_alert()
@@ -389,11 +415,23 @@ def sitemap():
 @server.before_request
 def before_request():
 
-    client_ip = request.remote_addr
-    if request.method != 'GET':
+    ip = request.remote_addr
+    fp = request.full_path
+    # server.logger.info(f"{ip} raw method = {request.method}")
+    # request.method.encode("ascii", "ignore")
+    # server.logger.info(f"{ip} encoded method = {request.method}")
+    met = request.method
+    if met != 'GET':
 
-        ip_ban.block(client_ip)
-        server.logger.warning(f"save {client_ip} as banned")
+        ip_ban.block(ip)
+        server.logger.warning(f"method not allowed - save {ip} as banned and return error")
+        return "method not allowed {met}", 403
+    elif is_not_ascii(met) or is_not_ascii(fp):
+
+        ip_ban.block(ip)
+        server.logger.warning(f"non-ascii request - save {ip} as banned and return error")
+        return "non-ascii characters in request", 403
+
 #        return "you have been added to the black list", 403
     # elif ip_ban.is_banned(client_ip):
 
@@ -401,10 +439,9 @@ def before_request():
     #     return "you are already in the black list", 403
     else:
 
-        client_ip = request.remote_addr
         with bs_lock:
 
-            client_set.add(client_ip)
+            client_set.add(ip)
 
 
 @server.after_request
@@ -454,7 +491,8 @@ if __name__ == '__main__':
     server.logger.info("starting keyboard listener")
 
     pool.spawn(debug_wrapper, keyboard_listener, shared_data)
-    server.logger.info(f"ban_count {ip_ban.ban_count} ban_seconds {ip_ban.ban_seconds}\n")
+    server.logger.info(f"ban_count {ip_ban.ban_count} ban_seconds {ip_ban.ban_seconds}")
+    server.logger.info(f"ip_ban_list ({len(ip_ban._ip_ban_list)})")
     server.logger.info("\nip_ban_list: ".join(ip_ban._ip_ban_list))
     server.logger.info("enter 'q' to quit the application\n")
 
