@@ -4,6 +4,6 @@ regex:
   - ^/favicon\.ico$
   - ^/feed$
   - ^/source_code$
-  - ^/sound/.*$
   - ^/client_counter$
   - ^/sitemap.xml$
+  - ^/johny$

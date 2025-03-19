@@ -6,8 +6,6 @@
     <title>{{ title }}</title>
 </head>
 <body>
-    <h1>musique</h1>
-
     {% if current_path %}
         <p><a href="{{ url_for('browse', subpath='/'.join(current_path.split('/')[:-1])) }}">..</a></p>
     {% endif %}
@@ -21,7 +19,7 @@
 
         {% for song in songs %}
             <li>
-                <a href="#" onclick="playSong('{{ url_for('serve_sound', filename=current_path + '/' + song) }}')">
+                <a href="#" onclick="playSong('{{ url_for('serve_audio', filename=current_path + '/' + song) }}')">
                     {{ song }}
                 </a>
             </li>

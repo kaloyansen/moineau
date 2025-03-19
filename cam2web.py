@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # real-time analysis and streaming video 
-# code by Kaloyan Krastev kaloyansen@gmail.com
+# code and music by Kaloyan Krastev kaloyansen@gmail.com
 # title by Milko Ginev nmrp@abv.bg
 
 from gevent import monkey
@@ -12,7 +12,7 @@ from gevent.lock import BoundedSemaphore, Semaphore
 import gevent
 
 from flask import Flask, Response
-from flask import request, redirect
+from flask import request, redirect, jsonify
 from flask import render_template, send_from_directory, url_for
 from flask_ipban import IpBan
 
@@ -38,8 +38,12 @@ title = os.getenv("FLASK_TITLE")
 ban_count = int(os.getenv("IP_BAN_LIST_COUNT"))
 ban_seconds = int(os.getenv("IP_BAN_LIST_SECONDS"))
 
-server = Flask(__name__, template_folder=f"{work}/static/template")
+server = Flask(__name__,
+#               static_folder = f"{work}/static",
+               template_folder = f"{work}/static/template")
+#			   static_url_path = '/static')
 server.secret_key = os.environ.get("FLASK_SECRET_KEY")
+
 os.makedirs(f"{work}/dataset/positives", exist_ok = True)
 os.makedirs(f"{work}/dataset/negatives", exist_ok = True)
 os.makedirs(f"{work}/ban", exist_ok = True)
@@ -69,7 +73,8 @@ wheel_states = ['-', '/', '|', '\\']
 x_pub = 320
 sleeping = 1e-2
 
-AUDIO_DIR = os.path.join(server.static_folder, "audio")
+AUDIO_DIR = "/static/audio"
+AUDIO_DIR = f"{work}/static/audio"
 
 class SharedData:
 
@@ -321,22 +326,23 @@ def feed():
     return Response(generation(), mimetype = 'multipart/x-mixed-replace; boundary=frame')
 
 
-@server.route('/favicon.ico')
-def favicon():
+# @server.route('/favicon.ico')
+# def favicon():
 
-    return send_from_directory(server.static_folder, 'favicon.ico', mimetype = 'image/x-icon')
-
-
-@server.route('/robots.txt')
-def robots():
-
-    return send_from_directory(server.static_folder, 'robots.txt')
+#     return redirect(url_for('static', filename = 'favicon.ico'))
+#     return send_from_directory(server.static_folder, 'favicon.ico', mimetype = 'image/x-icon')
 
 
-@server.route('/.well-known/security.txt')
-def security_txt():
+# @server.route('/robots.txt')
+# def robots():
 
-    return send_from_directory(server.static_folder, 'security.txt')
+#     return redirect(url_for('static', filename = 'robots.txt'))
+
+
+# @server.route('/.well-known/security.txt')
+# def security_txt():
+
+#     return redirect(url_for('static', filename = 'security.txt'))
 
 
 @server.route('/source_code')
@@ -359,34 +365,22 @@ def access_source_code():
 @server.route('/', methods = ['GET'])
 def index():
 
-    # send_alert()
+    audio_files = []
+    if os.path.exists(AUDIO_DIR): #return "pass again in an hour", 200
+
+        all_files = os.listdir(AUDIO_DIR)
+        audio_files =  [f for f in all_files if f.endswith(".mp3")]
     try:
 
-        return render_template('index.html')
+        return render_template('sound.html', audio_files=audio_files)
     except Exception as e:
 
         return f"error: {e}"
 
 
-@server.route("/sound/")
-@server.route("/sound/<path:subpath>")
-def browse(subpath = ""):
+@server.route('/sound/<filename>', methods = ['GET'])
+def serve_audio(filename):
 
-    full_path = os.path.join(AUDIO_DIR, subpath)
-    if not os.path.exists(full_path):
-
-        return "pass again in an hour", 200
-    items = sorted(os.listdir(full_path))
-    directories = [d for d in items if os.path.isdir(os.path.join(full_path, d))]
-    songs = [f for f in items if f.endswith(".mp3")]
-
-    return render_template("music.html", directories = directories, songs = songs, current_path = subpath)
-
-
-@server.route("/sound/file/<path:filename>")
-def serve_sound(filename):
-
-    SOUND_DIR = os.path.join(server.static_folder, "audio")
     return send_from_directory(AUDIO_DIR, filename)
 
 
@@ -462,6 +456,19 @@ def get_clients():
         return f"{len(client_set)}"
 
 
+# @server.route('/johny')
+# def list_static_files():
+
+#     static_folder = server.static_folder
+#     file_list = []
+#     for dirpath, _, filenames in os.walk(static_folder):
+
+#         for filename in filenames:
+
+#             file_list.append(os.path.relpath(os.path.join(dirpath, filename), static_folder))
+#     return jsonify(file_list)
+
+
 def run_server():
 
     serve = WSGIServer(("0.0.0.0", int(port)), server)
@@ -494,5 +501,3 @@ if __name__ == '__main__':
     server.logger.warning("stop signal detected\n")
     pool.kill()
     server.logger.info("all tasks stopped\n")
-
-

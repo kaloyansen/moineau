@@ -4,16 +4,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ title }}</title>
+    <link rel="stylesheet" href="/static/css/style.css">
 
 </head>
 <body>
-    <div align="center">
-        <a href="{{ url_for('browse') }}">music</a>
-        <a href="{{ url_for('feed') }}">video</a>
-        <a href="{{ url_for('access_source_code') }}">code</a>
-        <br><br>
-        <img src="{{ url_for('feed') }}">
+   <div class="container">
+	<div class="box">
+          <a href="{{ url_for('browse') }}">audio</a>
+          <a href="{{ url_for('feed') }}">video</a>
+          <a href="{{ url_for('access_source_code') }}">code</a>
+	  <br>
+          <img src="{{ url_for('feed') }}">
+	</div>
     </div>
-
 </body>
 </html>
