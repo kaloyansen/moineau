@@ -30,7 +30,7 @@ import logging
 fps_limit = 10
 jpeg_quality = 100
 workers = 8
-port = 8080
+port = os.getenv("FLASK_PORT")
 log_to_file = False
 
 work = os.getenv("FLASK_WORK_DIRECTORY")
@@ -38,7 +38,7 @@ title = os.getenv("FLASK_TITLE")
 ban_count = int(os.getenv("IP_BAN_LIST_COUNT"))
 ban_seconds = int(os.getenv("IP_BAN_LIST_SECONDS"))
 
-server = Flask(__name__)
+server = Flask(__name__, template_folder=f"{work}/static/template")
 server.secret_key = os.environ.get("FLASK_SECRET_KEY")
 os.makedirs(f"{work}/dataset/positives", exist_ok = True)
 os.makedirs(f"{work}/dataset/negatives", exist_ok = True)
@@ -71,6 +71,18 @@ sleeping = 1e-2
 
 AUDIO_DIR = os.path.join(server.static_folder, "audio")
 
+class SharedData:
+
+    def __init__(self):
+
+        self.frame = None
+        self.running = True
+        self.fps_value = 0
+
+shared_data = SharedData()
+bs_lock = BoundedSemaphore()
+client_set = set()
+
 def debug_wrapper(func, *args):
 
     try:
@@ -94,7 +106,7 @@ def is_not_ascii(mot):
     return False
 
 
-def keyboard_listener(shared_data):
+def keyboard_listener():
 
     while shared_data.running:
 
@@ -217,7 +229,7 @@ def process_frame(fr):
     return labeled_frame
 
 
-def read_stream(shared_data, bs_lock):
+def read_stream():
 
     global total_frame
 
@@ -258,7 +270,7 @@ def read_stream(shared_data, bs_lock):
     cap.release()
 
 
-def generation(shared_data, bs_lock):
+def generation():
 
     gen_count = time.perf_counter()
     last_frame = None
@@ -306,7 +318,7 @@ def serange():
 @server.route('/feed')
 def feed():
 
-    return Response(generation(shared_data, bs_lock), mimetype = 'multipart/x-mixed-replace; boundary=frame')
+    return Response(generation(), mimetype = 'multipart/x-mixed-replace; boundary=frame')
 
 
 @server.route('/favicon.ico')
@@ -371,14 +383,6 @@ def browse(subpath = ""):
     return render_template("music.html", directories = directories, songs = songs, current_path = subpath)
 
 
-def oldsound():
-
-    SOUND_DIR = os.path.join(server.static_folder, "audio")
-    songs = [f for f in os.listdir(SOUND_DIR) if f.endswith(".mp3")]
-    return render_template("sound.html", songs = songs)
-
-
-# @server.route("/static/audio/<filename>")
 @server.route("/sound/file/<path:filename>")
 def serve_sound(filename):
 
@@ -460,37 +464,24 @@ def get_clients():
 
 def run_server():
 
-    serve = WSGIServer(("0.0.0.0", port), server)
+    serve = WSGIServer(("0.0.0.0", int(port)), server)
     serve.serve_forever()
 
 
 if __name__ == '__main__':
 
     pool = Pool(workers)
-    bs_lock = BoundedSemaphore()
-    client_set = set()
-
-    class SharedData:
-
-        def __init__(self):
-
-            self.frame = None
-            self.running = True
-            self.fps_value = 0
-
-    shared_data = SharedData()
 
     timestamp = datetime.datetime.now().strftime("%H:%M:%S")
-    server.logger.info("starting server")
-    server.logger.info(timestamp)
+    server.logger.info(f"starting server at {timestamp}")
 
     pool.spawn(debug_wrapper, run_server)
     server.logger.info("starting stream")
 
-    pool.spawn(debug_wrapper, read_stream, shared_data, bs_lock)
+    pool.spawn(debug_wrapper, read_stream)
     server.logger.info("starting keyboard listener")
 
-    pool.spawn(debug_wrapper, keyboard_listener, shared_data)
+    pool.spawn(debug_wrapper, keyboard_listener)
     server.logger.info(f"ban_count {ip_ban.ban_count} ban_seconds {ip_ban.ban_seconds}")
     server.logger.info(f"ip_ban_list ({len(ip_ban._ip_ban_list)})")
     server.logger.info("\nip_ban_list: ".join(ip_ban._ip_ban_list))
