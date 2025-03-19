@@ -2,7 +2,6 @@ regex:
   - ^/\.well-known/security\.txt$
   - ^/robots\.txt$
   - ^/favicon\.ico$
-  - ^/feed$
   - ^/source_code$
   - ^/client_counter$
   - ^/sitemap.xml$

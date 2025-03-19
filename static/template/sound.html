@@ -14,7 +14,7 @@
       </div>
       <div class="box">
 	{% for file in audio_files %}
-	<audio controls><source src="{{ url_for('serve_audio', filename=file) }}" type="audio/mpeg"></audio>
+	  <audio controls><source src="/audio/{{ file }}" type="audio/mpeg"></audio>
 	{{ file }}
 	<br>
 	{% endfor %}

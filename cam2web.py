@@ -35,19 +35,16 @@ log_to_file = False
 
 work = os.getenv("FLASK_WORK_DIRECTORY")
 title = os.getenv("FLASK_TITLE")
+code = os.getenv("FLASK_CODE")
 ban_count = int(os.getenv("IP_BAN_LIST_COUNT"))
 ban_seconds = int(os.getenv("IP_BAN_LIST_SECONDS"))
 
-server = Flask(__name__,
-#               static_folder = f"{work}/static",
-               template_folder = f"{work}/static/template")
-#			   static_url_path = '/static')
+server = Flask(__name__, template_folder = f"{work}/static/template")
 server.secret_key = os.environ.get("FLASK_SECRET_KEY")
 
 os.makedirs(f"{work}/dataset/positives", exist_ok = True)
 os.makedirs(f"{work}/dataset/negatives", exist_ok = True)
 os.makedirs(f"{work}/ban", exist_ok = True)
-os.makedirs(f"{work}/log", exist_ok = True)
 
 cascade1 = cv2.CascadeClassifier(f"{work}/cascade/bird1.xml")
 cascade2 = cv2.CascadeClassifier(f"{work}/cascade/bird2.xml")
@@ -73,8 +70,9 @@ wheel_states = ['-', '/', '|', '\\']
 x_pub = 320
 sleeping = 1e-2
 
-AUDIO_DIR = "/static/audio"
+AUDIO_LOC = '/audio'
 AUDIO_DIR = f"{work}/static/audio"
+server.logger.info(f"static rute in /etc/nginx/conf.d/{code}.conf")
 
 class SharedData:
 
@@ -244,10 +242,11 @@ def read_stream():
     if not cap.isOpened():
 
         server.logger.error(f"error: cannot capture {video_device}")
+        shared_data.running = False
     else:
 
         server.logger.info(f"captured {video_device}")
-
+        shared_data.running = True
     read_count = time.perf_counter()
     while shared_data.running:
 
@@ -366,10 +365,13 @@ def access_source_code():
 def index():
 
     audio_files = []
-    if os.path.exists(AUDIO_DIR): #return "pass again in an hour", 200
+    if os.path.exists(AUDIO_DIR):
 
         all_files = os.listdir(AUDIO_DIR)
         audio_files =  [f for f in all_files if f.endswith(".mp3")]
+    else:
+
+        return "maintenance", 200
     try:
 
         return render_template('sound.html', audio_files=audio_files)
@@ -381,7 +383,7 @@ def index():
 @server.route('/sound/<filename>', methods = ['GET'])
 def serve_audio(filename):
 
-    return send_from_directory(AUDIO_DIR, filename)
+    return send_from_directory(AUDIO_LOC, filename)
 
 
 @server.route('/sitemap.xml', methods=['GET'])
