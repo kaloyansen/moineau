@@ -1,5 +1,5 @@
 body {
-    background-color: red;
+    background-color: blue;
     color: white;
     margin: 0;
     font-family: Arial, sans-serif;
@@ -11,6 +11,14 @@ body {
     justify-content: center;
     align-items: center;
     height: 100vh;
+    gap: 10px;
+}
+
+.montainer {
+    background-color: green;
+    display: flex;
+    justify-content: center;
+    align-items: center;
     gap: 10px;
 }
 

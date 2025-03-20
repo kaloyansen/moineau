@@ -70,7 +70,7 @@ wheel_states = ['-', '/', '|', '\\']
 x_pub = 320
 sleeping = 1e-2
 
-AUDIO_LOC = '/audio'
+AUDIO_LOC = '/static/audio'
 AUDIO_DIR = f"{work}/static/audio"
 server.logger.info(f"static rute in /etc/nginx/conf.d/{code}.conf")
 
@@ -353,8 +353,9 @@ def access_source_code():
         with open(file_path, "r") as f:
 
             src = f.read()
+        size = len(src.splitlines())
         escaped_code = escape(src)
-        return render_template('code.html', code = escaped_code)
+        return render_template('code.html', code = escaped_code, size = size)
     except Exception as e:
  
         server.logger.error(f"error while reading source code: {e}")
@@ -380,7 +381,7 @@ def index():
         return f"error: {e}"
 
 
-@server.route('/sound/<filename>', methods = ['GET'])
+@server.route('/static/sound/<filename>', methods = ['GET'])
 def serve_audio(filename):
 
     return send_from_directory(AUDIO_LOC, filename)

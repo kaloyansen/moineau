@@ -1,27 +1,29 @@
 <!DOCTYPE html>
 <html lang="en">
+
   <head>
+
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ title }}</title>
-    <link rel="stylesheet" href="css/style.css">
-
+    <link rel="stylesheet" href="/static/css/style.css">
   </head>
   <body>
+    
     <div class="container">
+      
       <div class="box">
-        <img src="{{ url_for('feed') }}">
+	
+	<a href="{{ url_for('access_source_code') }}"><img src="{{ url_for('feed') }}"></a>
       </div>
       <div class="box">
+	
 	{% for file in audio_files %}
-	  <audio controls><source src="/audio/{{ file }}" type="audio/mpeg"></audio>
-	{{ file }}
+	{{ file[:-4] }}
+	<audio controls preload="none"><source src="/static/audio/{{ file }}" type="audio/mpeg"></audio>
 	<br>
 	{% endfor %}
       </div>
-    </div>
-    <div class="container">
-      <a href="{{ url_for('access_source_code') }}">code</a>
     </div>
   </body>
 </html>

@@ -1,11 +1,25 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
+
+  <head>
+
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ title }}</title>  
-</head>
-<body>
-    <pre>{{ code | safe }}</pre>   
-</body>
+  </head>
+  <body>
+
+    <div align="center">
+
+      <h3>{{ size }} lines of code</h3>
+      <a href="{{ url_for('index') }}">index</a>
+    </div>
+    <pre>{{ code | safe }}
+
+    </pre>
+    <div align="center">
+
+      <a href="{{ url_for('index') }}">index</a>
+    </div>
+  </body>
 </html>
