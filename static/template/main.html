@@ -20,7 +20,10 @@
 	
 	{% for file in audio_files %}
 	{{ file[:-4] }}
-	<audio controls preload="none"><source src="/static/audio/{{ file }}" type="audio/mpeg"></audio>
+	<audio controls preload="none"><source src="/static/audio/{{ file }}" type="audio/mpeg">
+
+	  your browser does not support {{ file }}
+	</audio>
 	<br>
 	{% endfor %}
       </div>

@@ -8,7 +8,7 @@ monkey.patch_all()
 
 from gevent.pool import Pool
 from gevent.pywsgi import WSGIServer
-from gevent.lock import BoundedSemaphore, Semaphore
+from gevent.lock import BoundedSemaphore
 import gevent
 
 from flask import Flask, Response
@@ -139,13 +139,6 @@ def save_frame(fr, label):
     filename = f"{work}/dataset/{label}/{int(time.time())}.jpg"
     cv2.imwrite(filename, fr)
     server.logger.info(f"saved: {filename}")
-
-
-def send_alert():
-
-    return
-    #global socket
-    #socket.emit('play_sound')
 
 
 def put_text(fr, text, position, font_scale):
@@ -325,25 +318,6 @@ def feed():
     return Response(generation(), mimetype = 'multipart/x-mixed-replace; boundary=frame')
 
 
-# @server.route('/favicon.ico')
-# def favicon():
-
-#     return redirect(url_for('static', filename = 'favicon.ico'))
-#     return send_from_directory(server.static_folder, 'favicon.ico', mimetype = 'image/x-icon')
-
-
-# @server.route('/robots.txt')
-# def robots():
-
-#     return redirect(url_for('static', filename = 'robots.txt'))
-
-
-# @server.route('/.well-known/security.txt')
-# def security_txt():
-
-#     return redirect(url_for('static', filename = 'security.txt'))
-
-
 @server.route('/source_code')
 def access_source_code():
 
@@ -375,7 +349,7 @@ def index():
         return "maintenance", 200
     try:
 
-        return render_template('sound.html', audio_files=audio_files)
+        return render_template('main.html', audio_files=audio_files)
     except Exception as e:
 
         return f"error: {e}"
@@ -457,19 +431,6 @@ def get_clients():
     with bs_lock:
 
         return f"{len(client_set)}"
-
-
-# @server.route('/johny')
-# def list_static_files():
-
-#     static_folder = server.static_folder
-#     file_list = []
-#     for dirpath, _, filenames in os.walk(static_folder):
-
-#         for filename in filenames:
-
-#             file_list.append(os.path.relpath(os.path.join(dirpath, filename), static_folder))
-#     return jsonify(file_list)
 
 
 def run_server():

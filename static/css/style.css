@@ -38,3 +38,8 @@ body {
     display: block;
     margin: 0 auto;
 }
+
+audio {
+    width: 200px; /* Adjust width */
+    height: 30px; /* Adjust height */
+}
