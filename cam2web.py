@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # real-time analysis and streaming video 
-# code and music by Kaloyan Krastev kaloyansen@gmail.com
+# code by Kaloyan Krastev kaloyansen@gmail.com
+# music composed, orchestrated and conducted by Kaloyan Krastev kaloyansen@gmail.com 
 # title by Milko Ginev nmrp@abv.bg
 
 from gevent import monkey
@@ -30,7 +31,7 @@ import logging
 fps_limit = 10
 jpeg_quality = 100
 workers = 8
-port = os.getenv("FLASK_PORT")
+port = int(os.getenv("FLASK_PORT"))
 log_to_file = False
 
 work = os.getenv("FLASK_WORK_DIRECTORY")
@@ -78,6 +79,7 @@ class SharedData:
 
     def __init__(self):
 
+        self.raw = None
         self.frame = None
         self.running = True
         self.fps_value = 0
@@ -121,10 +123,10 @@ def keyboard_listener():
                 shared_data.running = False
             elif key == 'n':  # Negative frame
 
-                save_frame(shared_data.frame, "negatives")
+                save_frame(shared_data.raw, "negatives")
             elif key == 'p':  # Positive frame
 
-                save_frame(shared_data.frame, "positives")
+                save_frame(shared_data.raw, "positives")
             elif key == 'c':  # Positive frame
 
                 os.system('clear')
@@ -255,11 +257,13 @@ def read_stream():
             gevent.sleep(sleeping)
             continue
          
-        raw_frame_copy = cv2.resize(raw_frame, (320, 240)) 
-        processed_frame = process_frame(raw_frame_copy)
+        raw_frame_resized = cv2.resize(raw_frame, (320, 240))
+        raw_frame_resized_copy = raw_frame_resized.copy()
+        processed_frame = process_frame(raw_frame_resized_copy)
         with bs_lock:
 
-            shared_data.frame = processed_frame.copy()
+            shared_data.raw = raw_frame_resized
+            shared_data.frame = processed_frame # .copy()
 
         total_frame += 1
         read_count = time.perf_counter()
@@ -435,7 +439,7 @@ def get_clients():
 
 def run_server():
 
-    serve = WSGIServer(("0.0.0.0", int(port)), server)
+    serve = WSGIServer(("0.0.0.0", port), server)
     serve.serve_forever()
 
 
