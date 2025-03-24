@@ -28,38 +28,35 @@ import sys
 import select
 import logging
 
-fps_limit = 10
-jpeg_quality = 100
-workers = 8
-port = int(os.getenv("FLASK_PORT"))
-log_to_file = False
+video_device   = os.getenv("VIDEO_DEVICE")
+log_file       = os.getenv("LOG_FILE")
+work_directory = os.getenv("FLASK_WORK_DIRECTORY")
+page_title     = os.getenv("PAGE_TITLE")
+secret_key     = os.getenv("FLASK_SECRET_KEY")
+fps_limit      = int(os.getenv("FPS_LIMIT"))
+jpeg_quality   = int(os.getenv("JPEG_QUALITY"))
+gevent_workers = int(os.getenv("GEVENT_WORKERS"))
+port           = int(os.getenv("FLASK_PORT"))
+ban_count      = int(os.getenv("IP_BAN_LIST_COUNT"))
+ban_seconds    = int(os.getenv("IP_BAN_LIST_SECONDS"))
 
-work = os.getenv("FLASK_WORK_DIRECTORY")
-title = os.getenv("FLASK_TITLE")
-code = os.getenv("FLASK_CODE")
-ban_count = int(os.getenv("IP_BAN_LIST_COUNT"))
-ban_seconds = int(os.getenv("IP_BAN_LIST_SECONDS"))
+server = Flask(__name__, template_folder = f"{work_directory}/static/template")
+server.secret_key = secret_key
 
-server = Flask(__name__, template_folder = f"{work}/static/template")
-server.secret_key = os.environ.get("FLASK_SECRET_KEY")
+os.makedirs(f"{work_directory}/dataset/positives", exist_ok = True)
+os.makedirs(f"{work_directory}/dataset/negatives", exist_ok = True)
+os.makedirs(f"{work_directory}/ban", exist_ok = True)
 
-os.makedirs(f"{work}/dataset/positives", exist_ok = True)
-os.makedirs(f"{work}/dataset/negatives", exist_ok = True)
-os.makedirs(f"{work}/ban", exist_ok = True)
+cascade1 = cv2.CascadeClassifier(f"{work_directory}/cascade/bird1.xml")
+cascade2 = cv2.CascadeClassifier(f"{work_directory}/cascade/bird2.xml")
 
-cascade1 = cv2.CascadeClassifier(f"{work}/cascade/bird1.xml")
-cascade2 = cv2.CascadeClassifier(f"{work}/cascade/bird2.xml")
-
-logfile = os.getenv("FLASK_LOG_FILE")
-
-if log_to_file:
-
-    logging.basicConfig(filename = f"{logfile}", level = logging.INFO)
-else:
+if log_file == "no":
 
     logging.basicConfig(level = logging.INFO, encoding = 'utf-8')
+else:
 
-ip_ban = IpBan(ban_count = ban_count, ban_seconds = ban_seconds, persist = True, record_dir = f"{work}/ban")
+    logging.basicConfig(filename = f"{log_file}", level = logging.INFO, encoding = 'utf-8')
+ip_ban = IpBan(ban_count = ban_count, ban_seconds = ban_seconds, persist = True, record_dir = f"{work_directory}/ban")
 ip_ban.init_app(server)
 ip_ban.load_allowed()
 ip_ban.load_nuisances()
@@ -72,8 +69,7 @@ x_pub = 320
 sleeping = 1e-2
 
 AUDIO_LOC = '/static/audio'
-AUDIO_DIR = f"{work}/static/audio"
-server.logger.info(f"static rute in /etc/nginx/conf.d/{code}.conf")
+AUDIO_DIR = f"{work_directory}/static/audio"
 
 class SharedData:
 
@@ -138,7 +134,7 @@ def keyboard_listener():
 
 def save_frame(fr, label):
 
-    filename = f"{work}/dataset/{label}/{int(time.time())}.jpg"
+    filename = f"{work_directory}/dataset/{label}/{int(time.time())}.jpg"
     cv2.imwrite(filename, fr)
     server.logger.info(f"saved: {filename}")
 
@@ -159,7 +155,7 @@ def put_text(fr, text, position, font_scale):
 
 def label_frame(fr):
 
-    global total_frame, x_pub, title
+    global total_frame, x_pub
     last_modified = datetime.datetime.now().strftime("%Y-%m-%d")
 
     maintenant = datetime.datetime.now()
@@ -175,7 +171,7 @@ def label_frame(fr):
         x_pub = 0
 
     fps_value = shared_data.fps_value
-    put_text(fr, f" {title}", (0, 12), 0.4)
+    put_text(fr, f" {page_title}", (0, 12), 0.4)
     put_text(fr, timestamp, (260, 12), 0.3)
     put_text(fr, publicity, (x_pub, 230), 0.3)
     put_text(fr, f"{fps_value:6.2f} Hz", (260, 230), 0.3)
@@ -231,12 +227,12 @@ def read_stream():
 
     global total_frame
 
-    video_device = '/dev/video0'
+    server.logger.info(f"gonna capture {video_device}")
     cap = cv2.VideoCapture(video_device)
     cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
     if not cap.isOpened():
 
-        server.logger.error(f"error: cannot capture {video_device}")
+        server.logger.error(f"cannot capture {video_device}")
         shared_data.running = False
     else:
 
@@ -313,7 +309,7 @@ def generation():
 @server.context_processor
 def serange():
 
-    return dict(title = title)
+    return dict(title = page_title)
 
 
 @server.route('/feed')
@@ -445,10 +441,10 @@ def run_server():
 
 if __name__ == '__main__':
 
-    pool = Pool(workers)
+    pool = Pool(gevent_workers)
 
     timestamp = datetime.datetime.now().strftime("%H:%M:%S")
-    server.logger.info(f"starting server at {timestamp}")
+    server.logger.info(f"starting flask server at {timestamp}")
 
     pool.spawn(debug_wrapper, run_server)
     server.logger.info("starting stream")
