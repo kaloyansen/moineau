@@ -5,4 +5,3 @@ regex:
   - ^/source_code$
   - ^/client_counter$
   - ^/sitemap.xml$
-  - ^/johny$
