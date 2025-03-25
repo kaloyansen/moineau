@@ -13,6 +13,7 @@ export FPS_LIMIT=10
 export JPEG_QUALITY=100
 export GEVENT_WORKERS=8
 export LOG_FILE=no
+export LOG_FILE=/var/log/$FLASK_CODE.log
 export IP_BAN_LIST_COUNT=3
 export IP_BAN_LIST_SECONDS=10000000
 
@@ -21,6 +22,7 @@ echo initializing python virtual envirenment
 source $FLASK_WORK_DIRECTORY/venv/bin/activate
 
 echo starting web application on 0.0.0.0:$FLASK_PORT
+echo log file $LOG_FILE
 exec $FLASK_WORK_DIRECTORY/$FLASK_CODE.py
 
 echo

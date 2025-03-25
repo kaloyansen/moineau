@@ -28,11 +28,11 @@ import sys
 import select
 import logging
 
-video_device   = os.getenv("VIDEO_DEVICE")
-log_file       = os.getenv("LOG_FILE")
-work_directory = os.getenv("FLASK_WORK_DIRECTORY")
-page_title     = os.getenv("PAGE_TITLE")
-secret_key     = os.getenv("FLASK_SECRET_KEY")
+video_device   =     os.getenv("VIDEO_DEVICE")
+log_file       =     os.getenv("LOG_FILE")
+work_directory =     os.getenv("FLASK_WORK_DIRECTORY")
+page_title     =     os.getenv("PAGE_TITLE")
+secret_key     =     os.getenv("FLASK_SECRET_KEY")
 fps_limit      = int(os.getenv("FPS_LIMIT"))
 jpeg_quality   = int(os.getenv("JPEG_QUALITY"))
 gevent_workers = int(os.getenv("GEVENT_WORKERS"))
@@ -136,7 +136,8 @@ def save_frame(fr, label):
 
     filename = f"{work_directory}/dataset/{label}/{int(time.time())}.jpg"
     cv2.imwrite(filename, fr)
-    server.logger.info(f"saved: {filename}")
+    print(f"saved: {filename}")
+    print("standby")
 
 
 def put_text(fr, text, position, font_scale):
@@ -454,14 +455,17 @@ if __name__ == '__main__':
 
     pool.spawn(debug_wrapper, keyboard_listener)
     server.logger.info(f"ban_count {ip_ban.ban_count} ban_seconds {ip_ban.ban_seconds}")
-    server.logger.info(f"ip_ban_list ({len(ip_ban._ip_ban_list)})")
-    server.logger.info("\nip_ban_list: ".join(ip_ban._ip_ban_list))
-    server.logger.info("enter 'q' to quit the application\n")
+    #server.logger.info(f"ip_ban_list ({len(ip_ban._ip_ban_list)})")
+    #server.logger.info("\nip_ban_list: ".join(ip_ban._ip_ban_list))
+    print("'n' to save a negative image")
+    print("'p' to save a positive image")
+    print("'q' to quit the application")
+    print("standby")
 
     while shared_data.running:
 
         gevent.sleep(0.5)
-    # # # ## # # ## # # ## # # ## # # ## # # ## # # ## # # ## # # #
+    # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     server.logger.warning("stop signal detected\n")
     pool.kill()
     server.logger.info("all tasks stopped\n")
