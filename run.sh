@@ -12,8 +12,8 @@ export FLASK_PORT=8081
 export FPS_LIMIT=10
 export JPEG_QUALITY=100
 export GEVENT_WORKERS=8
-export LOG_FILE=no
 export LOG_FILE=/var/log/$FLASK_CODE.log
+export LOG_FILE=no
 export IP_BAN_LIST_COUNT=3
 export IP_BAN_LIST_SECONDS=10000000
 

@@ -62,7 +62,6 @@ ip_ban.load_allowed()
 ip_ban.load_nuisances()
 
 frame_count = 0
-total_frame = 0
 wheel_state = 0
 wheel_states = ['-', '/', '|', '\\']
 x_pub = 320
@@ -79,6 +78,10 @@ class SharedData:
         self.frame = None
         self.running = True
         self.fps_value = 0
+        self.count = 0
+    def new_frame(self):
+
+        self.count += 1
 
 shared_data = SharedData()
 bs_lock = BoundedSemaphore()
@@ -156,7 +159,7 @@ def put_text(fr, text, position, font_scale):
 
 def label_frame(fr):
 
-    global total_frame, x_pub
+    global x_pub
     last_modified = datetime.datetime.now().strftime("%Y-%m-%d")
 
     maintenant = datetime.datetime.now()
@@ -167,7 +170,7 @@ def label_frame(fr):
 # 320 x 240
 
     if x_pub > 0:
-        x_pub = x_pub - total_frame
+        x_pub = x_pub - shared_data.count
     if x_pub < 0:
         x_pub = 0
 
@@ -226,18 +229,16 @@ def process_frame(fr):
 
 def read_stream():
 
-    global total_frame
-
-    server.logger.info(f"gonna capture {video_device}")
+    server.logger.info(f"wait while capturing {video_device} ...")
     cap = cv2.VideoCapture(video_device)
     cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
     if not cap.isOpened():
 
-        server.logger.error(f"cannot capture {video_device}")
+        print(f"... cannot capture {video_device}")
         shared_data.running = False
     else:
 
-        server.logger.info(f"captured {video_device}")
+        print(f"... captured {video_device}")
         shared_data.running = True
     read_count = time.perf_counter()
     while shared_data.running:
@@ -250,10 +251,10 @@ def read_stream():
         success, raw_frame = cap.read()
         if not success:
 
+            print(f"cannot read {video_device}")
             read_count = time.perf_counter()
-            gevent.sleep(sleeping)
+            gevent.sleep(1)
             continue
-         
         raw_frame_resized = cv2.resize(raw_frame, (320, 240))
         raw_frame_resized_copy = raw_frame_resized.copy()
         processed_frame = process_frame(raw_frame_resized_copy)
@@ -262,7 +263,7 @@ def read_stream():
             shared_data.raw = raw_frame_resized
             shared_data.frame = processed_frame # .copy()
 
-        total_frame += 1
+        shared_data.new_frame()
         read_count = time.perf_counter()
 
     cap.release()
