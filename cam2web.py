@@ -64,7 +64,12 @@ ip_ban.load_nuisances()
 frame_count = 0
 wheel_state = 0
 wheel_states = ['-', '/', '|', '\\']
-x_pub = 320
+
+frame_size_x = 640
+frame_size_y = 480
+frame_size_x = 320
+frame_size_y = 240
+
 sleeping = 1e-2
 
 AUDIO_LOC = '/static/audio'
@@ -79,9 +84,15 @@ class SharedData:
         self.running = True
         self.fps_value = 0
         self.count = 0
+        self.count9 = 0
+        self.x = frame_size_x
     def new_frame(self):
 
         self.count += 1
+        self.count9 += 1
+        if self.count9 > 9: self.count9 = 0
+        if self.x > 0: self.x = self.x - self.count
+        if self.x < 0: self.x = 0
 
 shared_data = SharedData()
 bs_lock = BoundedSemaphore()
@@ -159,25 +170,16 @@ def put_text(fr, text, position, font_scale):
 
 def label_frame(fr):
 
-    global x_pub
     last_modified = datetime.datetime.now().strftime("%Y-%m-%d")
-
     maintenant = datetime.datetime.now()
     timestamp = maintenant.strftime("%H:%M:%S")
     timestamp = f"{timestamp}.{frame_count}"
     publicity = ' https://github.com/kaloyansen/moineau'
-# 640 x 480
-# 320 x 240
-
-    if x_pub > 0:
-        x_pub = x_pub - shared_data.count
-    if x_pub < 0:
-        x_pub = 0
 
     fps_value = shared_data.fps_value
     put_text(fr, f" {page_title}", (0, 12), 0.4)
     put_text(fr, timestamp, (260, 12), 0.3)
-    put_text(fr, publicity, (x_pub, 230), 0.3)
+    put_text(fr, publicity, (shared_data.x, 230), 0.3)
     put_text(fr, f"{fps_value:6.2f} Hz", (260, 230), 0.3)
 
     return fr
@@ -255,7 +257,7 @@ def read_stream():
             read_count = time.perf_counter()
             gevent.sleep(1)
             continue
-        raw_frame_resized = cv2.resize(raw_frame, (320, 240))
+        raw_frame_resized = cv2.resize(raw_frame, (frame_size_x, frame_size_y))
         raw_frame_resized_copy = raw_frame_resized.copy()
         processed_frame = process_frame(raw_frame_resized_copy)
         with bs_lock:
