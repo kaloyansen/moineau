@@ -61,7 +61,6 @@ ip_ban.init_app(server)
 ip_ban.load_allowed()
 ip_ban.load_nuisances()
 
-frame_count = 0
 wheel_state = 0
 wheel_states = ['-', '/', '|', '\\']
 
@@ -69,6 +68,7 @@ frame_size_x = 640
 frame_size_y = 480
 frame_size_x = 320
 frame_size_y = 240
+font2 = cv2.FONT_HERSHEY_SIMPLEX
 
 sleeping = 1e-2
 
@@ -86,17 +86,24 @@ class SharedData:
         self.count = 0
         self.count9 = 0
         self.x = frame_size_x
+        self.text = ' https://github.com/kaloyansen/moineau'
+        self.speed = 3
+        self.new_message(self.text)
+    def new_message(self, message):
+
+        self.text = message
+        self.size = cv2.getTextSize(message, font2, 0.3, 1)[0]
     def new_frame(self):
 
         self.count += 1
         self.count9 += 1
         if self.count9 > 9: self.count9 = 0
-        if self.x > 0: self.x = self.x - self.count
-        if self.x < 0: self.x = 0
-
+        if self.x / self.size[0] + 1 < 0: self.x = frame_size_x - self.size[0] # not too complicated
+        self.x -= self.speed
 shared_data = SharedData()
 bs_lock = BoundedSemaphore()
 client_set = set()
+
 
 def debug_wrapper(func, *args):
 
@@ -129,19 +136,16 @@ def keyboard_listener():
 
             key = sys.stdin.read(1)
             if key == 'q':
-
+                # quit
                 shared_data.running = False
-            elif key == 'n':  # Negative frame
-
+            elif key == 'n':
+                # save a negative frame
                 save_frame(shared_data.raw, "negatives")
-            elif key == 'p':  # Positive frame
-
+            elif key == 'p':
+                # save a positive frame
                 save_frame(shared_data.raw, "positives")
-            elif key == 'c':  # Positive frame
-
-                os.system('clear')
-            elif key == 'r':  # Positive frame
-
+            elif key == 'r':
+                # reset command-line interfase
                 os.system('reset')
         gevent.sleep(0.1)  # Yield control back to gevent
 
@@ -151,21 +155,21 @@ def save_frame(fr, label):
     filename = f"{work_directory}/dataset/{label}/{int(time.time())}.jpg"
     cv2.imwrite(filename, fr)
     print(f"saved: {filename}")
+    shared_data.new_message(f" {label}")
     print("standby")
 
 
 def put_text(fr, text, position, font_scale):
 
-    font = cv2.FONT_HERSHEY_SIMPLEX
     color = (22, 22, 22)
     outcolor = (222, 222, 222)
     thickness = 1
     outline = 1 #  cv2.LINE_AA
-    cv2.putText(fr, text, (position[0] - 1, position[1] - 1), font, font_scale, outcolor, outline, cv2.LINE_AA)
-    cv2.putText(fr, text, (position[0] + 1, position[1] - 1), font, font_scale, outcolor, outline, cv2.LINE_AA)
-    cv2.putText(fr, text, (position[0] - 1, position[1] + 1), font, font_scale, outcolor, outline, cv2.LINE_AA)
-    cv2.putText(fr, text, (position[0] + 1, position[1] + 1), font, font_scale, outcolor, outline, cv2.LINE_AA)
-    cv2.putText(fr, text, position, font, font_scale, color, thickness, cv2.LINE_AA)
+    cv2.putText(fr, text, (position[0] - 1, position[1] - 1), font2, font_scale, outcolor, outline, cv2.LINE_AA)
+    cv2.putText(fr, text, (position[0] + 1, position[1] - 1), font2, font_scale, outcolor, outline, cv2.LINE_AA)
+    cv2.putText(fr, text, (position[0] - 1, position[1] + 1), font2, font_scale, outcolor, outline, cv2.LINE_AA)
+    cv2.putText(fr, text, (position[0] + 1, position[1] + 1), font2, font_scale, outcolor, outline, cv2.LINE_AA)
+    cv2.putText(fr, text, position, font2, font_scale, color, thickness, cv2.LINE_AA)
 
 
 def label_frame(fr):
@@ -173,15 +177,15 @@ def label_frame(fr):
     last_modified = datetime.datetime.now().strftime("%Y-%m-%d")
     maintenant = datetime.datetime.now()
     timestamp = maintenant.strftime("%H:%M:%S")
-    timestamp = f"{timestamp}.{frame_count}"
-    publicity = ' https://github.com/kaloyansen/moineau'
+    timestamp = f"{timestamp}.{shared_data.count9}"
+    video_title = f" {page_title}{shared_data.fps_value:6.2f} Hz"
+    y_bottom = frame_size_y - shared_data.size[1]
+    x_right = frame_size_x - 60
 
-    fps_value = shared_data.fps_value
-    put_text(fr, f" {page_title}", (0, 12), 0.4)
-    put_text(fr, timestamp, (260, 12), 0.3)
-    put_text(fr, publicity, (shared_data.x, 230), 0.3)
-    put_text(fr, f"{fps_value:6.2f} Hz", (260, 230), 0.3)
-
+    put_text(                      fr, video_title,      (0,                                  12), 0.4)
+    put_text(                      fr, timestamp,        (x_right,                            12), 0.3)
+    put_text(                      fr, shared_data.text, (shared_data.x,                y_bottom), 0.3)
+    if shared_data.x < 0: put_text(fr, shared_data.text, (frame_size_x + shared_data.x, y_bottom), 0.3)
     return fr
 
 
@@ -199,7 +203,7 @@ def analyze_frame(fr):
 
 #        save_frame(fr, "negatives")
     font = cv2.FONT_HERSHEY_SIMPLEX
-    wheel = wheel_states[wheel_state] # + f" {len(sparrow1)}"
+    wheel = wheel_states[wheel_state]
     wheel_state = (wheel_state + 1) % len(wheel_states)
 
     spindex = 0
@@ -213,19 +217,13 @@ def analyze_frame(fr):
         cv2.rectangle(fr, (x, y), (x + w, y + h), (255, 255, 0), 2)
         cv2.putText(fr, 'bird', (x, y - 2), font, 0.5, (0, 255, 255), 2, cv2.LINE_AA)
         
-    return fr # processed_frame
+    return fr
 
 
 def process_frame(fr):
 
-    global frame_count
     analyzed_frame = analyze_frame(fr)
     labeled_frame = label_frame(analyzed_frame)
-
-    frame_count += 1
-    if frame_count > 9:
-        frame_count = 0
-
     return labeled_frame
 
 
