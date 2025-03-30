@@ -83,16 +83,15 @@ class SharedData:
         self.frame = None
         self.running = True
         self.fps_value = 0
-        self.count = 0
         self.count9 = 0
-        self.x = frame_size_x
-        self.text = ' https://github.com/kaloyansen/moineau'
-        self.speed = 3
-        self.new_message(self.text)
-    def new_message(self, message):
+        self.new_message(' https://github.com/kaloyansen/moineau')
+    def new_message(self, message, speed = 3):
 
+        self.speed = speed
+        self.x = frame_size_x
         self.text = message
         self.size = cv2.getTextSize(message, font2, 0.3, 1)[0]
+        self.count = 0
     def new_frame(self):
 
         self.count += 1
@@ -152,10 +151,10 @@ def keyboard_listener():
 
 def save_frame(fr, label):
 
-    filename = f"{work_directory}/dataset/{label}/{int(time.time())}.jpg"
-    cv2.imwrite(filename, fr)
+    filename = f"dataset/{label}/{int(time.time())}.jpg"
+    cv2.imwrite(f"{work_directory}/{filename}", fr)
     print(f"saved: {filename}")
-    shared_data.new_message(f" {label}")
+    shared_data.new_message(f" {filename}")
     print("standby")
 
 
