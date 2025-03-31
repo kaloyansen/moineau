@@ -27,36 +27,44 @@ import os
 import sys
 import select
 import logging
+import random
+import lorem
 
-video_device   =     os.getenv("VIDEO_DEVICE")
-log_file       =     os.getenv("LOG_FILE")
-work_directory =     os.getenv("FLASK_WORK_DIRECTORY")
-page_title     =     os.getenv("PAGE_TITLE")
-secret_key     =     os.getenv("FLASK_SECRET_KEY")
-fps_limit      = int(os.getenv("FPS_LIMIT"))
-jpeg_quality   = int(os.getenv("JPEG_QUALITY"))
-gevent_workers = int(os.getenv("GEVENT_WORKERS"))
-port           = int(os.getenv("FLASK_PORT"))
-ban_count      = int(os.getenv("IP_BAN_LIST_COUNT"))
-ban_seconds    = int(os.getenv("IP_BAN_LIST_SECONDS"))
+class Envariable:
 
-server = Flask(__name__, template_folder = f"{work_directory}/static/template")
-server.secret_key = secret_key
+    def __init__(self):
 
-os.makedirs(f"{work_directory}/dataset/positives", exist_ok = True)
-os.makedirs(f"{work_directory}/dataset/negatives", exist_ok = True)
-os.makedirs(f"{work_directory}/ban", exist_ok = True)
+        self.video_device   =     os.getenv("VIDEO_DEVICE")
+        self.log_file       =     os.getenv("LOG_FILE")
+        self.work_directory =     os.getenv("FLASK_WORK_DIRECTORY")
+        self.page_title     =     os.getenv("PAGE_TITLE")
+        self.secret_key     =     os.getenv("FLASK_SECRET_KEY")
+        self.fps_limit      = int(os.getenv("FPS_LIMIT"))
+        self.jpeg_quality   = int(os.getenv("JPEG_QUALITY"))
+        self.gevent_workers = int(os.getenv("GEVENT_WORKERS"))
+        self.flask_port     = int(os.getenv("FLASK_PORT"))
+        self.ban_count      = int(os.getenv("IP_BAN_LIST_COUNT"))
+        self.ban_seconds    = int(os.getenv("IP_BAN_LIST_SECONDS"))
+en = Envariable()
 
-cascade1 = cv2.CascadeClassifier(f"{work_directory}/cascade/bird1.xml")
-cascade2 = cv2.CascadeClassifier(f"{work_directory}/cascade/bird2.xml")
+server = Flask(__name__, template_folder = f"{en.work_directory}/static/template")
+server.secret_key = en.secret_key
 
-if log_file == "no":
+os.makedirs(f"{en.work_directory}/dataset/positives", exist_ok = True)
+os.makedirs(f"{en.work_directory}/dataset/negatives", exist_ok = True)
+os.makedirs(f"{en.work_directory}/ban", exist_ok = True)
+
+cascade1 = cv2.CascadeClassifier(f"{en.work_directory}/cascade/bird1.xml")
+cascade2 = cv2.CascadeClassifier(f"{en.work_directory}/cascade/bird2.xml")
+
+if en.log_file == "no":
 
     logging.basicConfig(level = logging.INFO, encoding = 'utf-8')
 else:
 
-    logging.basicConfig(filename = f"{log_file}", level = logging.INFO, encoding = 'utf-8')
-ip_ban = IpBan(ban_count = ban_count, ban_seconds = ban_seconds, persist = True, record_dir = f"{work_directory}/ban")
+    logging.basicConfig(filename = f"{en.log_file}", level = logging.INFO, encoding = 'utf-8')
+
+ip_ban = IpBan(ban_count = en.ban_count, ban_seconds = en.ban_seconds, persist = True, record_dir = f"{en.work_directory}/ban")
 ip_ban.init_app(server)
 ip_ban.load_allowed()
 ip_ban.load_nuisances()
@@ -73,7 +81,9 @@ font2 = cv2.FONT_HERSHEY_SIMPLEX
 sleeping = 1e-2
 
 AUDIO_LOC = '/static/audio'
-AUDIO_DIR = f"{work_directory}/static/audio"
+AUDIO_DIR = f"{en.work_directory}/static/audio"
+DEFAULT_MESSAGE = ' https://github.com/kaloyansen/moineau'
+FONT_SIZE = 0.4
 
 class SharedData:
 
@@ -84,13 +94,13 @@ class SharedData:
         self.running = True
         self.fps_value = 0
         self.count9 = 0
-        self.new_message(' https://github.com/kaloyansen/moineau')
-    def new_message(self, message, speed = 3):
+        self.new_message()
+    def new_message(self, message = lorem.paragraph(), speed = 6):
 
         self.speed = speed
         self.x = frame_size_x
         self.text = message
-        self.size = cv2.getTextSize(message, font2, 0.3, 1)[0]
+        self.size = cv2.getTextSize(message, font2, FONT_SIZE, 1)[0]
         self.count = 0
     def new_frame(self):
 
@@ -99,19 +109,21 @@ class SharedData:
         if self.count9 > 9: self.count9 = 0
         if self.x / self.size[0] + 1 < 0: self.x = frame_size_x - self.size[0] # not too complicated
         self.x -= self.speed
+        if self.count > 33: self.new_message()
+
 shared_data = SharedData()
 bs_lock = BoundedSemaphore()
 client_set = set()
 
+def dump_object(obj):
+
+    for key, value in obj.__dict__.items(): server.logger.info(f"{key}: {value}")
+
 
 def debug_wrapper(func, *args):
 
-    try:
-
-        func(*args)
-    except Exception as e:
-
-        server.logger.error(f"error in {func.__name__}: {e}")
+    try: func(*args)
+    except Exception as e: server.logger.error(f"error in {func.__name__}: {e}")
 
 
 def is_not_ascii(mot):
@@ -151,14 +163,15 @@ def keyboard_listener():
 
 def save_frame(fr, label):
 
-    filename = f"dataset/{label}/{int(time.time())}.jpg"
-    cv2.imwrite(f"{work_directory}/{filename}", fr)
-    print(f"saved: {filename}")
+    filename = f"dataset/{label}/{int(time.time())}"
+    filepath = f"{en.work_directory}/{filename}.jpg"
+    cv2.imwrite(filepath, fr)
+    print(f"saved: {filepath}")
     shared_data.new_message(f" {filename}")
     print("standby")
 
 
-def put_text(fr, text, position, font_scale):
+def contrast(fr, text, position, font_scale):
 
     color = (22, 22, 22)
     outcolor = (222, 222, 222)
@@ -177,14 +190,14 @@ def label_frame(fr):
     maintenant = datetime.datetime.now()
     timestamp = maintenant.strftime("%H:%M:%S")
     timestamp = f"{timestamp}.{shared_data.count9}"
-    video_title = f" {page_title}{shared_data.fps_value:6.2f} Hz"
+    video_title = f" {en.page_title}{shared_data.fps_value:6.2f} Hz"
     y_bottom = frame_size_y - shared_data.size[1]
-    x_right = frame_size_x - 60
+    x_right = frame_size_x - 70
 
-    put_text(                      fr, video_title,      (0,                                  12), 0.4)
-    put_text(                      fr, timestamp,        (x_right,                            12), 0.3)
-    put_text(                      fr, shared_data.text, (shared_data.x,                y_bottom), 0.3)
-    if shared_data.x < 0: put_text(fr, shared_data.text, (frame_size_x + shared_data.x, y_bottom), 0.3)
+    contrast(                      fr, video_title,      (0,                                  12), FONT_SIZE)
+    contrast(                      fr, timestamp,        (x_right,                            12), FONT_SIZE)
+    contrast(                      fr, shared_data.text, (shared_data.x,                y_bottom), FONT_SIZE)
+    if shared_data.x < 0: contrast(fr, shared_data.text, (frame_size_x + shared_data.x, y_bottom), FONT_SIZE)
     return fr
 
 
@@ -228,21 +241,21 @@ def process_frame(fr):
 
 def read_stream():
 
-    server.logger.info(f"wait while capturing {video_device} ...")
-    cap = cv2.VideoCapture(video_device)
+    server.logger.info(f"wait while capturing {en.video_device} ...")
+    cap = cv2.VideoCapture(en.video_device)
     cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
     if not cap.isOpened():
 
-        print(f"... cannot capture {video_device}")
+        print(f"... cannot capture {en.video_device}")
         shared_data.running = False
     else:
 
-        print(f"... captured {video_device}")
+        print(f"... captured {en.video_device}")
         shared_data.running = True
     read_count = time.perf_counter()
     while shared_data.running:
 
-        if time.perf_counter() - read_count < 1. / fps_limit:
+        if time.perf_counter() - read_count < 1. / en.fps_limit:
 
             gevent.sleep(sleeping)
             continue
@@ -250,7 +263,7 @@ def read_stream():
         success, raw_frame = cap.read()
         if not success:
 
-            print(f"cannot read {video_device}")
+            print(f"cannot read {en.video_device}")
             read_count = time.perf_counter()
             gevent.sleep(1)
             continue
@@ -274,7 +287,7 @@ def generation():
     last_frame = None
     while shared_data.running:
 
-        if time.perf_counter() - gen_count < 1. / fps_limit:
+        if time.perf_counter() - gen_count < 1. / en.fps_limit:
 
             gevent.sleep(sleeping)
             continue
@@ -294,7 +307,7 @@ def generation():
 
             last_frame = shared_data.frame.copy()
 
-        _, jpeg = cv2.imencode('.jpg', last_frame, [cv2.IMWRITE_JPEG_QUALITY, jpeg_quality])
+        _, jpeg = cv2.imencode('.jpg', last_frame, [cv2.IMWRITE_JPEG_QUALITY, en.jpeg_quality])
 
         shared_data.fps_value = 1 / (time.perf_counter() - gen_count)
         gen_count = time.perf_counter()
@@ -310,7 +323,7 @@ def generation():
 @server.context_processor
 def serange():
 
-    return dict(title = page_title)
+    return dict(title = en.page_title)
 
 
 @server.route('/feed')
@@ -421,9 +434,12 @@ def before_request():
 
 
 @server.after_request
-def after_request(response):
+def after_request(response): return response
 
-    return response
+@server.route('/src')
+def get_text():
+
+    return jsonify({"text": lorem.paragraph()})
 
 
 @server.route('/client_counter')
@@ -436,13 +452,14 @@ def get_clients():
 
 def run_server():
 
-    serve = WSGIServer(("0.0.0.0", port), server)
+    serve = WSGIServer(("0.0.0.0", en.flask_port), server)
     serve.serve_forever()
 
 
 if __name__ == '__main__':
 
-    pool = Pool(gevent_workers)
+    dump_object(en)
+    pool = Pool(en.gevent_workers)
 
     timestamp = datetime.datetime.now().strftime("%H:%M:%S")
     server.logger.info(f"starting flask server at {timestamp}")
@@ -454,9 +471,10 @@ if __name__ == '__main__':
     server.logger.info("starting keyboard listener")
 
     pool.spawn(debug_wrapper, keyboard_listener)
-    server.logger.info(f"ban_count {ip_ban.ban_count} ban_seconds {ip_ban.ban_seconds}")
+    # server.logger.info(f"ban_count {ip_ban.ban_count} ban_seconds {ip_ban.ban_seconds}")
     #server.logger.info(f"ip_ban_list ({len(ip_ban._ip_ban_list)})")
     #server.logger.info("\nip_ban_list: ".join(ip_ban._ip_ban_list))
+    print("keyboard commands:")
     print("'n' to save a negative image")
     print("'p' to save a positive image")
     print("'q' to quit the application")

@@ -1,0 +1,22 @@
+#scroll-container {
+    position: fixed;
+    bottom: 10px;
+    width: 100%;
+    overflow: hidden;
+    white-space: nowrap;
+}
+
+.scroll-text {
+    display: inline-block;
+    position: relative;
+    animation: scrollText 10s linear infinite;
+}
+
+@keyframes scrollText {
+    from {
+        transform: translateX(100%);
+    }
+    to {
+        transform: translateX(-100%);
+    }
+}

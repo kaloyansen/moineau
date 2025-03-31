@@ -21,8 +21,8 @@ echo static rute in $FLASK_WORK_DIRECTORY/nginx/conf.d/$FLASK_CODE.conf
 echo initializing python virtual envirenment
 source $FLASK_WORK_DIRECTORY/venv/bin/activate
 
-echo starting web application on 0.0.0.0:$FLASK_PORT
-echo log file $LOG_FILE
+echo -n starting web application on 0.0.0.0:$FLASK_PORT
+echo \ log file $LOG_FILE
 exec $FLASK_WORK_DIRECTORY/$FLASK_CODE.py
 
 echo
