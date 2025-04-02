@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # real-time analysis and streaming video 
 # code by Kaloyan Krastev kaloyansen@gmail.com
-# music composed, orchestrated and conducted by Kaloyan Krastev kaloyansen@gmail.com 
+# music composed, orchestrated and conducted by Kaloyan Krastev 
 # title by Milko Ginev nmrp@abv.bg
 
 from gevent import monkey
@@ -34,10 +34,10 @@ from pygments import highlight
 from pygments.lexers import PythonLexer
 from pygments.formatters import HtmlFormatter
 
-class Envariable:
+class SecureContext:
 	""" secure context """
-	def __init__(self):
-
+	def __init__(self, birdlives):
+		""" load context """
 		self.video_device   =     self.safe("VIDEO_DEVICE")
 		self.log_file       =     self.safe("LOG_FILE")
 		self.work_directory =     self.safe("FLASK_WORK_DIRECTORY")
@@ -53,34 +53,64 @@ class Envariable:
 		""" let it be safe """
 		good = os.getenv(var, 0)
 		if not good:
-			""" warning if the environment variable is not set """
-			print(f"not good: cannot find environment variable {var}")
+			""" warn if not good """
+			print(f"not good: cannot find {var}")
 		return good
 	def dump(self):
 		""" print all """
-		print("=" * 33)
-		for key, value in self.__dict__.items(): print(f"{key}: {value}")
-		print("=" * 33)
-en = Envariable()
+		print()
+		print('=' * 16, 'secure context', '=' * 16)
+		for key, value in self.__dict__.items():
+			""" print one """
+			print(f"{key}: {value}")
+		print('^' * 44)
 
-server = Flask(__name__, template_folder = f"{en.work_directory}/static/template")
-server.secret_key = en.secret_key
 
-os.makedirs(f"{en.work_directory}/dataset/positives", exist_ok = True)
-os.makedirs(f"{en.work_directory}/dataset/negatives", exist_ok = True)
-os.makedirs(f"{en.work_directory}/ban", exist_ok = True)
+class InterThreadCommunication:
 
-cascade1 = cv2.CascadeClassifier(f"{en.work_directory}/cascade/bird1.xml")
-cascade2 = cv2.CascadeClassifier(f"{en.work_directory}/cascade/bird2.xml")
+	def __init__(self, font_name, font_size, frame_size):
 
-if en.log_file == "no":
+		self.font_name = font_name
+		self.font_size = font_size
+		self.frame_size = frame_size
+		self.raw = None
+		self.frame = None
+		self.running = True
+		self.fps_value = 0
+		self.count9 = 0
+		self.new_message()
+	def new_message(self, message = lorem.paragraph(), speed = 6):
 
-	logging.basicConfig(level = logging.INFO, encoding = 'utf-8')
-else:
+		self.speed = speed
+		self.x = frame_size_x
+		self.text = message
+		self.size = cv2.getTextSize(message, self.font_name, self.font_size, 1)[0]
+		self.count = 0
+	def new_frame(self):
 
-	logging.basicConfig(filename = f"{en.log_file}", level = logging.INFO, encoding = 'utf-8')
+		self.count += 1
+		self.count9 += 1
+		if self.count9 > 9: self.count9 = 0
+		if self.x / self.size[0] + 1 < 0: self.x = self.frame_size - self.size[0] # not too complicated
+		self.x -= self.speed
+		if self.count > 111: self.new_message()
 
-ip_ban = IpBan(ban_count = en.ban_count, ban_seconds = en.ban_seconds, persist = True, record_dir = f"{en.work_directory}/ban")
+sc = SecureContext(166)
+
+server = Flask(__name__, template_folder = f"{sc.work_directory}/static/template")
+server.secret_key = sc.secret_key
+
+os.makedirs(f"{sc.work_directory}/dataset/positives", exist_ok = True)
+os.makedirs(f"{sc.work_directory}/dataset/negatives", exist_ok = True)
+os.makedirs(f"{sc.work_directory}/ban", exist_ok = True)
+
+cascade1 = cv2.CascadeClassifier(f"{sc.work_directory}/cascade/bird1.xml")
+cascade2 = cv2.CascadeClassifier(f"{sc.work_directory}/cascade/bird2.xml")
+
+if sc.log_file: logging.basicConfig(level = logging.INFO, encoding = 'utf-8', filename = f"{sc.log_file}")
+else:           logging.basicConfig(level = logging.INFO, encoding = 'utf-8')
+
+ip_ban = IpBan(ban_count = sc.ban_count, ban_seconds = sc.ban_seconds, persist = True, record_dir = f"{sc.work_directory}/ban")
 ip_ban.init_app(server)
 ip_ban.load_allowed()
 ip_ban.load_nuisances()
@@ -97,37 +127,10 @@ font2 = cv2.FONT_HERSHEY_SIMPLEX
 sleeping = 1e-2
 
 AUDIO_LOC = '/static/audio'
-AUDIO_DIR = f"{en.work_directory}/static/audio"
-DEFAULT_MESSAGE = ' https://github.com/kaloyansen/moineau'
+AUDIO_DIR = f"{sc.work_directory}/static/audio"
 FONT_SIZE = 0.4
 
-class SharedData:
-
-	def __init__(self):
-
-		self.raw = None
-		self.frame = None
-		self.running = True
-		self.fps_value = 0
-		self.count9 = 0
-		self.new_message()
-	def new_message(self, message = lorem.paragraph(), speed = 6):
-
-		self.speed = speed
-		self.x = frame_size_x
-		self.text = message
-		self.size = cv2.getTextSize(message, font2, FONT_SIZE, 1)[0]
-		self.count = 0
-	def new_frame(self):
-
-		self.count += 1
-		self.count9 += 1
-		if self.count9 > 9: self.count9 = 0
-		if self.x / self.size[0] + 1 < 0: self.x = frame_size_x - self.size[0] # not too complicated
-		self.x -= self.speed
-		if self.count > 33: self.new_message()
-
-shared_data = SharedData()
+itc = InterThreadCommunication(font2, FONT_SIZE, frame_size_x)
 bs_lock = BoundedSemaphore()
 client_set = set()
 
@@ -152,20 +155,20 @@ def is_not_ascii(mot):
 
 def keyboard_listener():
 
-	while shared_data.running:
+	while itc.running:
 
 		if sys.stdin in select.select([sys.stdin], [], [], 0)[0]:
 
 			key = sys.stdin.read(1)
 			if key == 'q':
 				# quit
-				shared_data.running = False
+				itc.running = False
 			elif key == 'n':
 				# save a negative frame
-				save_frame(shared_data.raw, "negatives")
+				save_frame(itc.raw, "negatives")
 			elif key == 'p':
 				# save a positive frame
-				save_frame(shared_data.raw, "positives")
+				save_frame(itc.raw, "positives")
 			elif key == 'r':
 				# reset command-line interfase
 				os.system('reset')
@@ -175,10 +178,10 @@ def keyboard_listener():
 def save_frame(fr, label):
 
 	filename = f"dataset/{label}/{int(time.time())}"
-	filepath = f"{en.work_directory}/{filename}.jpg"
+	filepath = f"{sc.work_directory}/{filename}.jpg"
 	cv2.imwrite(filepath, fr)
 	print(f"saved: {filepath}")
-	shared_data.new_message(f" {filename}")
+	itc.new_message(f" {filename}")
 	print("standby")
 
 
@@ -200,15 +203,15 @@ def label_frame(fr):
 	last_modified = datetime.datetime.now().strftime("%Y-%m-%d")
 	maintenant = datetime.datetime.now()
 	timestamp = maintenant.strftime("%H:%M:%S")
-	timestamp = f"{timestamp}.{shared_data.count9}"
-	video_title = f" {en.page_title}{shared_data.fps_value:6.2f} Hz"
-	y_bottom = frame_size_y - shared_data.size[1]
+	timestamp = f"{timestamp}.{itc.count9}"
+	video_title = f" {sc.page_title}{itc.fps_value:6.2f} Hz"
+	y_bottom = frame_size_y - itc.size[1]
 	x_right = frame_size_x - 70
 
 	contrast(                      fr, video_title,      (0,                                  12), FONT_SIZE)
 	contrast(                      fr, timestamp,        (x_right,                            12), FONT_SIZE)
-	contrast(                      fr, shared_data.text, (shared_data.x,                y_bottom), FONT_SIZE)
-	if shared_data.x < 0: contrast(fr, shared_data.text, (frame_size_x + shared_data.x, y_bottom), FONT_SIZE)
+	contrast(                      fr, itc.text,         (itc.x,                        y_bottom), FONT_SIZE)
+	if itc.x < 0: contrast(        fr, itc.text,         (frame_size_x + itc.x,         y_bottom), FONT_SIZE)
 	return fr
 
 
@@ -252,21 +255,21 @@ def process_frame(fr):
 
 def read_stream():
 
-	server.logger.info(f"wait while capturing {en.video_device} ...")
-	cap = cv2.VideoCapture(en.video_device)
+	server.logger.info(f"wait while capturing {sc.video_device} ...")
+	cap = cv2.VideoCapture(sc.video_device)
 	cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 	if not cap.isOpened():
 
-		print(f"... cannot capture {en.video_device}")
-		shared_data.running = False
+		print(f"... cannot capture {sc.video_device}")
+		itc.running = False
 	else:
 
-		print(f"... captured {en.video_device}")
-		shared_data.running = True
+		print(f"... captured {sc.video_device}")
+		itc.running = True
 	read_count = time.perf_counter()
-	while shared_data.running:
+	while itc.running:
 
-		if time.perf_counter() - read_count < 1. / en.fps_limit:
+		if time.perf_counter() - read_count < 1. / sc.fps_limit:
 
 			gevent.sleep(sleeping)
 			continue
@@ -274,7 +277,7 @@ def read_stream():
 		success, raw_frame = cap.read()
 		if not success:
 
-			print(f"cannot read {en.video_device}")
+			print(f"cannot read {sc.video_device}")
 			read_count = time.perf_counter()
 			gevent.sleep(1)
 			continue
@@ -283,10 +286,10 @@ def read_stream():
 		processed_frame = process_frame(raw_frame_resized_copy)
 		with bs_lock:
 
-			shared_data.raw = raw_frame_resized
-			shared_data.frame = processed_frame # .copy()
+			itc.raw = raw_frame_resized
+			itc.frame = processed_frame # .copy()
 
-		shared_data.new_frame()
+		itc.new_frame()
 		read_count = time.perf_counter()
 
 	cap.release()
@@ -296,31 +299,31 @@ def generation():
 
 	gen_count = time.perf_counter()
 	last_frame = None
-	while shared_data.running:
+	while itc.running:
 
-		if time.perf_counter() - gen_count < 1. / en.fps_limit:
+		if time.perf_counter() - gen_count < 1. / sc.fps_limit:
 
 			gevent.sleep(sleeping)
 			continue
 
 		with bs_lock:
 
-			if shared_data.frame is None:
+			if itc.frame is None:
 
 				server.logger.warning("frame is None")
 				gevent.sleep(sleeping)
 				continue
-			#if last_frame is not None and np.array_equal(shared_data.frame, last_frame):
+			#if last_frame is not None and np.array_equal(itc.frame, last_frame):
 
 				#server.logger.warning("frame repeats")
 			#	 gevent.sleep(sleeping)
 			#	 continue
 
-			last_frame = shared_data.frame.copy()
+			last_frame = itc.frame.copy()
 
-		_, jpeg = cv2.imencode('.jpg', last_frame, [cv2.IMWRITE_JPEG_QUALITY, en.jpeg_quality])
+		_, jpeg = cv2.imencode('.jpg', last_frame, [cv2.IMWRITE_JPEG_QUALITY, sc.jpeg_quality])
 
-		shared_data.fps_value = 1 / (time.perf_counter() - gen_count)
+		itc.fps_value = 1 / (time.perf_counter() - gen_count)
 		gen_count = time.perf_counter()
 
 		try:
@@ -334,7 +337,7 @@ def generation():
 @server.context_processor
 def serange():
 
-	return dict(title = en.page_title)
+	return dict(title = sc.page_title)
 
 
 @server.route('/feed')
@@ -346,7 +349,7 @@ def feed():
 @server.route('/source_code')
 def access_source_code():
 
-	formatter = HtmlFormatter(style = "colorful", full = True)
+	formatter = HtmlFormatter(style = 'native', full = True, cssclass = "codehilite")
 	try:
 
 		file_path = os.path.abspath(__file__)
@@ -465,14 +468,14 @@ def get_clients():
 
 def run_server():
 
-	serve = WSGIServer(("0.0.0.0", en.flask_port), server)
+	serve = WSGIServer(("0.0.0.0", sc.flask_port), server)
 	serve.serve_forever()
 
 
 if __name__ == '__main__':
 
-	en.dump()
-	pool = Pool(en.gevent_workers)
+	sc.dump()
+	pool = Pool(sc.gevent_workers)
 
 	timestamp = datetime.datetime.now().strftime("%H:%M:%S")
 	server.logger.info(f"starting flask server at {timestamp}")
@@ -493,7 +496,7 @@ if __name__ == '__main__':
 	print("'q' to quit the application")
 	print("standby")
 
-	while shared_data.running:
+	while itc.running:
 
 		gevent.sleep(0.5)
 	# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
