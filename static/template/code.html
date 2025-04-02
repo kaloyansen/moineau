@@ -14,9 +14,7 @@
       <h3>{{ size }} lines of code</h3>
       <a href="{{ url_for('index') }}">index</a>
     </div>
-    <pre>{{ code | safe }}
-
-    </pre>
+    {{ code | safe }}
     <div align="center">
 
       <a href="{{ url_for('index') }}">index</a>
