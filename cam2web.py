@@ -79,9 +79,10 @@ class InterThreadCommunication:
 		self.fps_value = 0
 		self.count9 = 0
 		self.new_message()
-	def new_message(self, message = lorem.paragraph(), speed = 6):
+	def new_message(self, message = lorem.paragraph(), persist = 111, speed = 6):
 
 		self.speed = speed
+		self.persist = persist
 		self.x = frame_size_x
 		self.text = message
 		self.size = cv2.getTextSize(message, self.font_name, self.font_size, 1)[0]
@@ -93,7 +94,7 @@ class InterThreadCommunication:
 		if self.count9 > 9: self.count9 = 0
 		if self.x / self.size[0] + 1 < 0: self.x = self.frame_size - self.size[0] # not too complicated
 		self.x -= self.speed
-		if self.count > 111: self.new_message()
+		if self.count > self.persist: self.new_message()
 
 sc = SecureContext(166)
 
@@ -388,6 +389,7 @@ def index():
 @server.route('/static/sound/<filename>', methods = ['GET'])
 def serve_audio(filename):
 
+	itc.new_message(filename)
 	return send_from_directory(AUDIO_LOC, filename)
 
 
