@@ -177,7 +177,9 @@ cp_*
 # static files
 static/audio/
 dataset/
+mataset/
 ban/
 log/
 cascade/
 model/
+dell/
