@@ -78,6 +78,8 @@ class InterThreadCommunication:
 		self.running = True
 		self.fps_value = 0
 		self.count9 = 0
+		self.wheel_index = 0
+		self.wheel_state = ['-', '/', '|', '\\']
 		self.new_message()
 	def new_message(self, message = lorem.paragraph(), persist = 111, speed = 6):
 
@@ -90,11 +92,17 @@ class InterThreadCommunication:
 	def new_frame(self):
 
 		self.count += 1
-		self.count9 += 1
-		if self.count9 > 9: self.count9 = 0
+		#self.count9 += 1
+		#if self.count9 > 9: self.count9 = 0
+		self.count9 = (self.count9 + 1) % 9
 		if self.x / self.size[0] + 1 < 0: self.x = self.frame_size - self.size[0] # not too complicated
 		self.x -= self.speed
 		if self.count > self.persist: self.new_message()
+		self.wheel_index = (self.wheel_index + 1) % len(self.wheel_state)
+	def wheel(self) -> str:
+
+		return self.wheel_state[self.wheel_index]
+
 
 sc = SecureContext(166)
 
@@ -116,14 +124,11 @@ ip_ban.init_app(server)
 ip_ban.load_allowed()
 ip_ban.load_nuisances()
 
-wheel_state = 0
-wheel_states = ['-', '/', '|', '\\']
-
 frame_size_x = 640
 frame_size_y = 480
 frame_size_x = 320
 frame_size_y = 240
-font2 = cv2.FONT_HERSHEY_SIMPLEX
+simplex = cv2.FONT_HERSHEY_SIMPLEX
 
 sleeping = 1e-2
 
@@ -131,7 +136,7 @@ AUDIO_LOC = '/static/audio'
 AUDIO_DIR = f"{sc.work_directory}/static/audio"
 FONT_SIZE = 0.4
 
-itc = InterThreadCommunication(font2, FONT_SIZE, frame_size_x)
+itc = InterThreadCommunication(simplex, FONT_SIZE, frame_size_x)
 bs_lock = BoundedSemaphore()
 client_set = set()
 
@@ -192,16 +197,15 @@ def contrast(fr, text, position, font_scale):
 	outcolor = (222, 222, 222)
 	thickness = 1
 	outline = 1 #  cv2.LINE_AA
-	cv2.putText(fr, text, (position[0] - 1, position[1] - 1), font2, font_scale, outcolor, outline, cv2.LINE_AA)
-	cv2.putText(fr, text, (position[0] + 1, position[1] - 1), font2, font_scale, outcolor, outline, cv2.LINE_AA)
-	cv2.putText(fr, text, (position[0] - 1, position[1] + 1), font2, font_scale, outcolor, outline, cv2.LINE_AA)
-	cv2.putText(fr, text, (position[0] + 1, position[1] + 1), font2, font_scale, outcolor, outline, cv2.LINE_AA)
-	cv2.putText(fr, text, position, font2, font_scale, color, thickness, cv2.LINE_AA)
+	cv2.putText(fr, text, (position[0] - 1, position[1] - 1), simplex, font_scale, outcolor, outline, cv2.LINE_AA)
+	cv2.putText(fr, text, (position[0] + 1, position[1] - 1), simplex, font_scale, outcolor, outline, cv2.LINE_AA)
+	cv2.putText(fr, text, (position[0] - 1, position[1] + 1), simplex, font_scale, outcolor, outline, cv2.LINE_AA)
+	cv2.putText(fr, text, (position[0] + 1, position[1] + 1), simplex, font_scale, outcolor, outline, cv2.LINE_AA)
+	cv2.putText(fr, text, position, simplex, font_scale, color, thickness, cv2.LINE_AA)
 
 
 def label_frame(fr):
 
-	last_modified = datetime.datetime.now().strftime("%Y-%m-%d")
 	maintenant = datetime.datetime.now()
 	timestamp = maintenant.strftime("%H:%M:%S")
 	timestamp = f"{timestamp}.{itc.count9}"
@@ -218,8 +222,6 @@ def label_frame(fr):
 
 def analyze_frame(fr):
 
-	global wheel_state, wheel_states
-
 	gray = cv2.cvtColor(fr, cv2.COLOR_BGR2GRAY)
 	sparrow1 = cascade1.detectMultiScale(gray, scaleFactor = 1.1, minNeighbors = 5, minSize=(30, 30))
 	sparrow2 = cascade2.detectMultiScale(gray, scaleFactor = 1.1, minNeighbors = 5, minSize=(30, 30))
@@ -229,20 +231,17 @@ def analyze_frame(fr):
 #	else:
 
 #		save_frame(fr, "negatives")
-	font = cv2.FONT_HERSHEY_SIMPLEX
-	wheel = wheel_states[wheel_state]
-	wheel_state = (wheel_state + 1) % len(wheel_states)
 
 	spindex = 0
 	for (x, y, w, h) in sparrow1:
 
 		cv2.rectangle(fr, (x, y), (x + w, y + h), (255, 255, 0), 2)
-		cv2.putText(fr, f"{spindex} {wheel}", (x, y + 12), font, 0.5, (0, 255, 255), 2, cv2.LINE_AA)
+		cv2.putText(fr, f"{spindex} {itc.wheel()}", (x, y + 12), simplex, 0.5, (0, 255, 255), 2, cv2.LINE_AA)
 		spindex += 1
 	for (x, y, w, h) in sparrow2:
 
 		cv2.rectangle(fr, (x, y), (x + w, y + h), (255, 255, 0), 2)
-		cv2.putText(fr, 'bird', (x, y - 2), font, 0.5, (0, 255, 255), 2, cv2.LINE_AA)
+		cv2.putText(fr, 'bird', (x, y - 2), simplex, 0.5, (0, 255, 255), 2, cv2.LINE_AA)
 		
 	return fr
 
