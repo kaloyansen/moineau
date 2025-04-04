@@ -25,10 +25,6 @@ source $FLASK_WORK_DIRECTORY/venv/bin/activate
 
 echo -n starting web application on 0.0.0.0:$FLASK_PORT
 echo \ log file $LOG_FILE
-exec $FLASK_WORK_DIRECTORY/$FLASK_CODE.py
+exec $FLASK_WORK_DIRECTORY/src/$FLASK_CODE.py
 
 echo
-
-
-
-
