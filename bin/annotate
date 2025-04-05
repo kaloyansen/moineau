@@ -1,0 +1,43 @@
+#!/usr/bin/env sh
+
+REAL=`realpath $0`
+OU=`dirname $REAL`
+ROOTDIR=$OU/..
+SRC=$ROOTDIR/src
+DATADIR=$ROOTDIR/dataset
+
+export IMAGE_FOLDER=$DATADIR/positives
+export OUTPUT_CSV=$DATADIR/annotations.csv
+export OUTPUT_TXT=$DATADIR/annotations.txt
+export SCALE_FACTOR=3
+POSITIVE_VECTOR=$DATADIR/positives.vec
+SERVER_ADDRESS=192.168.0.104
+
+quit() {
+    deactivate
+    fusermount -u $DATADIR || echo cannot unmount sshfs
+    echo exit code $1
+    exit $1 || kill $$
+}
+
+source $ROOTDIR/venv/bin/activate
+sshfs $USER@$SERVER_ADDRESS:$DATADIR $DATADIR
+if [ $? ]; then
+    echo sshfs success
+else
+    echo sshfs failure
+    quit 4
+fi
+
+neg=`ls $DATADIR/negatives | wc -l` || quit 166
+pos=`ls $DATADIR/positives | wc -l` || quit 111
+find $DATADIR/negatives -type f -name "*.jpg" > $DATADIR/negatives.txt
+
+echo pos: $pos, neg: $neg
+
+# $SRC/annotate.py
+$SRC/csv2txt.py
+opencv_createsamples -info $OUTPUT_TXT -num $pos -w 24 -h 24 -vec $POSITIVE_VECTOR
+
+echo ok && quit 0 || kill $$
+

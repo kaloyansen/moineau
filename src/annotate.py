@@ -4,19 +4,20 @@ import cv2
 import os
 import pandas as pd
 
-image_folder = "/yocto/moineau/mataset/positives/"
-output_csv = "/yocto/moineau/mataset/annotations.csv"
+image_folder = os.getenv("IMAGE_FOLDER")
+output_csv = os.getenv("OUTPUT_CSV")
+scale_factor = int(os.getenv("SCALE_FACTOR"))
 window_name = "annotation tool"
-scale_factor = 3
 
-# Create output directory if needed
-os.makedirs(image_folder, exist_ok=True)
-
-# Initialize or load annotations
 if os.path.exists(output_csv):
     annotations = pd.read_csv(output_csv)
 else:
-    annotations = pd.DataFrame(columns=["filename", "x", "y", "width", "height", "bird_id"])
+    annotations = pd.DataFrame(columns=["filename",
+                                        "x",
+                                        "y",
+                                        "width",
+                                        "height",
+                                        "bird_id"])
     annotations.to_csv(output_csv, index = False)
 
 def resize_image(img, scale):
