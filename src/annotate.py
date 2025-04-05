@@ -4,7 +4,7 @@ import cv2
 import os
 import pandas as pd
 
-image_folder = os.getenv("IMAGE_FOLDER")
+image_folder = os.getenv("POSITIVES")
 output_csv = os.getenv("OUTPUT_CSV")
 scale_factor = int(os.getenv("SCALE_FACTOR"))
 window_name = "annotation tool"

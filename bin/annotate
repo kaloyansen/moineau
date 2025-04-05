@@ -4,24 +4,25 @@ REAL=`realpath $0`
 OU=`dirname $REAL`
 ROOTDIR=$OU/..
 SRC=$ROOTDIR/src
-DATADIR=$ROOTDIR/dataset
-
-export IMAGE_FOLDER=$DATADIR/positives
-export OUTPUT_CSV=$DATADIR/annotations.csv
-export OUTPUT_TXT=$DATADIR/annotations.txt
+DATASET=$ROOTDIR/dataset
+NEGATIVES=$DATASET/negatives
+export POSITIVES=$DATASET/positives
+export OUTPUT_CSV=$DATASET/annotations.csv
+export OUTPUT_TXT=$DATASET/annotations.txt
 export SCALE_FACTOR=3
-POSITIVE_VECTOR=$DATADIR/positives.vec
+VECTOR=$POSITIVES.vec
+CLASSIFIER=$ROOTDIR/classifier
 SERVER_ADDRESS=192.168.0.104
 
 quit() {
     deactivate
-    fusermount -u $DATADIR || echo cannot unmount sshfs
+    fusermount -u $DATASET || echo cannot unmount sshfs
     echo exit code $1
     exit $1 || kill $$
 }
 
 source $ROOTDIR/venv/bin/activate
-sshfs $USER@$SERVER_ADDRESS:$DATADIR $DATADIR
+sshfs $USER@$SERVER_ADDRESS:$DATASET $DATASET
 if [ $? ]; then
     echo sshfs success
 else
@@ -29,15 +30,19 @@ else
     quit 4
 fi
 
-neg=`ls $DATADIR/negatives | wc -l` || quit 166
-pos=`ls $DATADIR/positives | wc -l` || quit 111
-find $DATADIR/negatives -type f -name "*.jpg" > $DATADIR/negatives.txt
+neg=`ls $NEGATIVES | wc -l` || quit 166
+pos=`ls $POSITIVES | wc -l` || quit 111
+find $NEGATIVES -type f -name "*.jpg" > $NEGATIVES.txt
 
 echo pos: $pos, neg: $neg
 
 # $SRC/annotate.py
 $SRC/csv2txt.py
-opencv_createsamples -info $OUTPUT_TXT -num $pos -w 24 -h 24 -vec $POSITIVE_VECTOR
+opencv_createsamples -info $OUTPUT_TXT -num $pos -w 24 -h 24 -vec $VECTOR
+
+opencv_traincascade -data $CLASSIFIER -vec $VECTOR -bg $NEGATIVES.txt -numPos $pos -numNeg $neg -numStages 10 -w 24 -h 24
 
 echo ok && quit 0 || kill $$
+
+
 
