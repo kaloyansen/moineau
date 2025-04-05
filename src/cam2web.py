@@ -113,8 +113,9 @@ os.makedirs(f"{sc.work_directory}/dataset/positives", exist_ok = True)
 os.makedirs(f"{sc.work_directory}/dataset/negatives", exist_ok = True)
 os.makedirs(f"{sc.work_directory}/ban", exist_ok = True)
 
-cascade1 = cv2.CascadeClassifier(f"{sc.work_directory}/cascade/bird1.xml")
-cascade2 = cv2.CascadeClassifier(f"{sc.work_directory}/cascade/bird2.xml")
+cascade = [cv2.CascadeClassifier(f"{sc.work_directory}/classifier/cascade.xml"),
+           cv2.CascadeClassifier(f"{sc.work_directory}/cascade/bird1.xml"),
+           cv2.CascadeClassifier(f"{sc.work_directory}/cascade/bird2.xml")]
 
 if sc.log_file: logging.basicConfig(level = logging.INFO, encoding = 'utf-8', filename = f"{sc.log_file}")
 else:           logging.basicConfig(level = logging.INFO, encoding = 'utf-8')
@@ -223,8 +224,9 @@ def label_frame(fr):
 def analyze_frame(fr):
 
 	gray = cv2.cvtColor(fr, cv2.COLOR_BGR2GRAY)
-	sparrow1 = cascade1.detectMultiScale(gray, scaleFactor = 1.1, minNeighbors = 5, minSize=(30, 30))
-	sparrow2 = cascade2.detectMultiScale(gray, scaleFactor = 1.1, minNeighbors = 5, minSize=(30, 30))
+	sparrow = [cascade[0].detectMultiScale(gray, scaleFactor = 1.1, minNeighbors = 5, minSize=(30, 30)),
+	           cascade[1].detectMultiScale(gray, scaleFactor = 1.1, minNeighbors = 5, minSize=(30, 30)),
+	           cascade[2].detectMultiScale(gray, scaleFactor = 1.1, minNeighbors = 5, minSize=(30, 30))]
 #	if len(sparrow) > 0:
 
 #		save_frame(fr, "positives")
@@ -233,15 +235,19 @@ def analyze_frame(fr):
 #		save_frame(fr, "negatives")
 
 	spindex = 0
-	for (x, y, w, h) in sparrow1:
+	for (x, y, w, h) in sparrow[0]:
 
-		cv2.rectangle(fr, (x, y), (x + w, y + h), (255, 255, 0), 2)
-		cv2.putText(fr, f"{spindex} {itc.wheel()}", (x, y + 12), simplex, 0.5, (0, 255, 255), 2, cv2.LINE_AA)
+		cv2.rectangle(fr, (x, y), (x + w, y + h), (255, 255, 0), 1)
+		cv2.putText(fr, f"{spindex} {itc.wheel()}", (x, y + 12), simplex, 0.5, (255, 255, 0), 1, cv2.LINE_AA)
 		spindex += 1
-	for (x, y, w, h) in sparrow2:
+	for (x, y, w, h) in sparrow[1]:
 
-		cv2.rectangle(fr, (x, y), (x + w, y + h), (255, 255, 0), 2)
-		cv2.putText(fr, 'bird', (x, y - 2), simplex, 0.5, (0, 255, 255), 2, cv2.LINE_AA)
+		cv2.rectangle(fr, (x, y), (x + w, y + h), (255, 0, 255), 2)
+		cv2.putText(fr, 'b1', (x, y - 2), simplex, 0.5, (255, 0, 255), 2, cv2.LINE_AA)
+	for (x, y, w, h) in sparrow[2]:
+
+		cv2.rectangle(fr, (x, y), (x + w, y + h), (0, 255, 255), 3)
+		cv2.putText(fr, 'b2', (x, y - 2), simplex, 0.5, (0, 255, 255), 3, cv2.LINE_AA)
 		
 	return fr
 
