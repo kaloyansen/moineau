@@ -36,14 +36,28 @@ find $NEGATIVES -type f -name "*.jpg" > $NEGATIVES.txt
 
 echo pos: $pos, neg: $neg
 
-if [ $1 == 'create' ]; then
-    $SRC/csv2txt.py
-    opencv_createsamples -info $OUTPUT_TXT -num $pos -w 24 -h 24 -vec $VECTOR
-elif [ $1 == 'train' ]; then
-    opencv_traincascade -data $CLASSIFIER -vec $VECTOR -bg $NEGATIVES.txt -numPos $pos -numNeg $neg -numStages 10 -w 24 -h 24
-else
-    $SRC/annotate.py
-fi
+case $1 in
+    create)
+	$SRC/csv2txt.py
+	opencv_createsamples -info $OUTPUT_TXT -num $pos -w 24 -h 24 -vec $VECTOR
+	;;
+    train)
+	opencv_traincascade -data $CLASSIFIER -vec $VECTOR -bg $NEGATIVES.txt -numPos $pos -numNeg $neg -numStages 20 -w 24 -h 24
+	;;
+    *)
+	$SRC/annotate.py
+	;;
+esac	
+
+
+# if [ $1 == 'create' ]; then
+#     $SRC/csv2txt.py
+#     opencv_createsamples -info $OUTPUT_TXT -num $pos -w 24 -h 24 -vec $VECTOR
+# elif [ $1 == 'train' ]; then
+#     opencv_traincascade -data $CLASSIFIER -vec $VECTOR -bg $NEGATIVES.txt -numPos $pos -numNeg $neg -numStages 10 -w 24 -h 24
+# else
+#     $SRC/annotate.py
+# fi
 
 
 
