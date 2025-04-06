@@ -35,73 +35,74 @@ from pygments.lexers import PythonLexer
 from pygments.formatters import HtmlFormatter
 
 class SecureContext:
-	""" secure context """
-	def __init__(self, birdlives):
-		""" load context """
-		self.video_device   =     self.safe("VIDEO_DEVICE")
-		self.log_file       =     self.safe("LOG_FILE")
-		self.work_directory =     self.safe("FLASK_WORK_DIRECTORY")
-		self.page_title     =     self.safe("PAGE_TITLE")
-		self.secret_key     =     self.safe("FLASK_SECRET_KEY")
-		self.fps_limit      = int(self.safe("FPS_LIMIT"))
-		self.jpeg_quality   = int(self.safe("JPEG_QUALITY"))
-		self.gevent_workers = int(self.safe("GEVENT_WORKERS"))
-		self.flask_port     = int(self.safe("FLASK_PORT"))
-		self.ban_count      = int(self.safe("IP_BAN_LIST_COUNT"))
-		self.ban_seconds    = int(self.safe("IP_BAN_LIST_SECONDS"))
-	def safe(self, var):
-		""" let it be safe """
-		good = os.getenv(var, 0)
-		if not good:
-			""" warn if not good """
-			print(f"not good: cannot find {var}")
-		return good
-	def dump(self):
-		""" print all """
-		print()
-		print('=' * 16, 'secure context', '=' * 16)
-		for key, value in self.__dict__.items():
-			""" print one """
-			print(f"{key}: {value}")
-		print('^' * 44)
+    """ secure context """
+    def __init__(self, birdlives):
+        """ load context """
+        self.video_device   =     self.safe("VIDEO_DEVICE")
+        self.log_file       =     self.safe("LOG_FILE")
+        self.work_directory =     self.safe("FLASK_WORK_DIRECTORY")
+        self.page_title     =     self.safe("PAGE_TITLE")
+        self.secret_key     =     self.safe("FLASK_SECRET_KEY")
+        self.fps_limit      = int(self.safe("FPS_LIMIT"))
+        self.jpeg_quality   = int(self.safe("JPEG_QUALITY"))
+        self.gevent_workers = int(self.safe("GEVENT_WORKERS"))
+        self.flask_port     = int(self.safe("FLASK_PORT"))
+        self.ban_count      = int(self.safe("IP_BAN_LIST_COUNT"))
+        self.ban_seconds    = int(self.safe("IP_BAN_LIST_SECONDS"))
+    def safe(self, var):
+        """ let it be safe """
+        good = os.getenv(var, 0)
+        if not good:
+            """ warn if not good """
+            print(f"not good: cannot find {var}")
+        return good
+    def dump(self):
+        """ print all """
+        print()
+        print('=' * 16, 'secure context', '=' * 16)
+        for key, value in self.__dict__.items():
+            """ print one """
+            print(f"{key}: {value}")
+        print('^' * 44)
 
 
 class InterThreadCommunication:
 
-	def __init__(self, font_name, font_size, frame_size):
+    def __init__(self, font_name, font_size, frame_size):
 
-		self.font_name = font_name
-		self.font_size = font_size
-		self.frame_size = frame_size
-		self.raw = None
-		self.frame = None
-		self.running = True
-		self.fps_value = 0
-		self.count9 = 0
-		self.wheel_index = 0
-		self.wheel_state = ['-', '/', '|', '\\']
-		self.new_message()
-	def new_message(self, message = lorem.paragraph(), persist = 111, speed = 6):
+        self.font_name = font_name
+        self.font_size = font_size
+        self.frame_size = frame_size
+        self.raw = None
+        self.frame = None
+        self.running = True
+        self.fps_value = 0
+        self.count9 = 0
+        self.wheel_index = 0
+        self.wheel_state = ['-', '/', '|', '\\']
+        self.count = 0
+        self.save_random_event = 11111
+        self.new_message()
+    def new_message(self, message = 0, persist = 111, speed = 6):
 
-		self.speed = speed
-		self.persist = persist
-		self.x = frame_size_x
-		self.text = message
-		self.size = cv2.getTextSize(message, self.font_name, self.font_size, 1)[0]
-		self.count = 0
-	def new_frame(self):
+        self.speed = speed
+        self.persist = persist
+        self.x = frame_size_x
+        if message: self.text = message
+        else: self.text = lorem.sentence()[:37].rstrip('.') + '!'
+        self.size = cv2.getTextSize(self.text, self.font_name, self.font_size, 1)[0]
+    def new_frame(self):
 
-		self.count += 1
-		#self.count9 += 1
-		#if self.count9 > 9: self.count9 = 0
-		self.count9 = (self.count9 + 1) % 9
-		if self.x / self.size[0] + 1 < 0: self.x = self.frame_size - self.size[0] # not too complicated
-		self.x -= self.speed
-		if self.count > self.persist: self.new_message()
-		self.wheel_index = (self.wheel_index + 1) % len(self.wheel_state)
-	def wheel(self) -> str:
+        self.count += 1
+        self.count9 = (self.count9 + 1) % 9
+        if self.x / self.size[0] + 1 < 0: self.x = self.frame_size - self.size[0] # not too complicated
+        self.x -= self.speed
+        if self.count % self.persist == 0: self.new_message()
+        self.wheel_index = (self.wheel_index + 1) % len(self.wheel_state)
+        return self.count % self.save_random_event == 0
+    def wheel(self) -> str:
 
-		return self.wheel_state[self.wheel_index]
+        return self.wheel_state[self.wheel_index]
 
 
 sc = SecureContext(166)
@@ -143,317 +144,319 @@ client_set = set()
 
 def debug_wrapper(func, *args):
 
-	try: func(*args)
-	except Exception as e: server.logger.error(f"error in {func.__name__}: {e}")
+    try: func(*args)
+    except Exception as e: server.logger.error(f"error in {func.__name__}: {e}")
 
 
 def is_not_ascii(mot):
 
-	for c in mot:
+    for c in mot:
 
-		if 0 <= ord(c) <= 127:
+        if 0 <= ord(c) <= 127:
 
-			continue
-		else:
+            continue
+        else:
 
-			return True
-	return False
+            return True
+    return False
 
 
 def keyboard_listener():
 
-	while itc.running:
+    while itc.running:
 
-		if sys.stdin in select.select([sys.stdin], [], [], 0)[0]:
+        if sys.stdin in select.select([sys.stdin], [], [], 0)[0]:
 
-			key = sys.stdin.read(1)
-			if key == 'q':
-				# quit
-				itc.running = False
-			elif key == 'n':
-				# save a negative frame
-				save_frame(itc.raw, "negatives")
-			elif key == 'p':
-				# save a positive frame
-				save_frame(itc.raw, "positives")
-			elif key == 'r':
-				# reset command-line interfase
-				os.system('reset')
-		gevent.sleep(0.1)  # Yield control back to gevent
+            key = sys.stdin.read(1)
+            if key == 'q':
+                # quit
+                itc.running = False
+            elif key == 'n':
+                # save a negative frame
+                save_frame("negatives")
+            elif key == 'p':
+                # save a positive frame
+                save_frame("positives")
+            elif key == 'r':
+                # reset command-line interfase
+                os.system('reset')
+        gevent.sleep(0.1)  # Yield control back to gevent
 
 
-def save_frame(fr, label):
+def save_frame(label: str, message = "saved"):
 
-	filename = f"dataset/{label}/{int(time.time())}"
-	filepath = f"{sc.work_directory}/{filename}.jpg"
-	cv2.imwrite(filepath, fr)
-	print(f"saved: {filepath}")
-	itc.new_message(f" {filename}")
-	print("standby")
+    filename = f"dataset/{label}/{int(time.time())}"
+    filepath = f"{sc.work_directory}/{filename}.jpg"
+    cv2.imwrite(filepath, itc.raw)
+    print(f"{message} {filepath}")
+    itc.new_message(f" {filename}")
+    print("standby")
 
 
 def contrast(fr, text, position, font_scale):
 
-	color = (22, 22, 22)
-	outcolor = (222, 222, 222)
-	thickness = 1
-	outline = 1 #  cv2.LINE_AA
-	cv2.putText(fr, text, (position[0] - 1, position[1] - 1), simplex, font_scale, outcolor, outline, cv2.LINE_AA)
-	cv2.putText(fr, text, (position[0] + 1, position[1] - 1), simplex, font_scale, outcolor, outline, cv2.LINE_AA)
-	cv2.putText(fr, text, (position[0] - 1, position[1] + 1), simplex, font_scale, outcolor, outline, cv2.LINE_AA)
-	cv2.putText(fr, text, (position[0] + 1, position[1] + 1), simplex, font_scale, outcolor, outline, cv2.LINE_AA)
-	cv2.putText(fr, text, position, simplex, font_scale, color, thickness, cv2.LINE_AA)
+    color = (22, 22, 22)
+    outcolor = (222, 222, 222)
+    thickness = 1
+    outline = 1 #  cv2.LINE_AA
+    cv2.putText(fr, text, (position[0] - 1, position[1] - 1), simplex, font_scale, outcolor, outline, cv2.LINE_AA)
+    cv2.putText(fr, text, (position[0] + 1, position[1] - 1), simplex, font_scale, outcolor, outline, cv2.LINE_AA)
+    cv2.putText(fr, text, (position[0] - 1, position[1] + 1), simplex, font_scale, outcolor, outline, cv2.LINE_AA)
+    cv2.putText(fr, text, (position[0] + 1, position[1] + 1), simplex, font_scale, outcolor, outline, cv2.LINE_AA)
+    cv2.putText(fr, text, position, simplex, font_scale, color, thickness, cv2.LINE_AA)
 
 
 def label_frame(fr):
 
-	maintenant = datetime.datetime.now()
-	timestamp = maintenant.strftime("%H:%M:%S")
-	timestamp = f"{timestamp}.{itc.count9}"
-	video_title = f" {sc.page_title}{itc.fps_value:6.2f} Hz"
-	y_bottom = frame_size_y - itc.size[1]
-	x_right = frame_size_x - 70
+    maintenant = datetime.datetime.now()
+    timestamp = maintenant.strftime("%H:%M:%S")
+    timestamp = f"{timestamp}.{itc.count9}"
+    video_title = f" {sc.page_title}{itc.fps_value:6.2f} Hz"
+    y_bottom = frame_size_y - itc.size[1]
+    x_right = frame_size_x - 70
 
-	contrast(                      fr, video_title,      (0,                                  12), FONT_SIZE)
-	contrast(                      fr, timestamp,        (x_right,                            12), FONT_SIZE)
-	contrast(                      fr, itc.text,         (itc.x,                        y_bottom), FONT_SIZE)
-	if itc.x < 0: contrast(        fr, itc.text,         (frame_size_x + itc.x,         y_bottom), FONT_SIZE)
-	return fr
+    contrast(                      fr, video_title,      (0,                                  12), FONT_SIZE)
+    contrast(                      fr, timestamp,        (x_right,                            12), FONT_SIZE)
+    contrast(                      fr, itc.text,         (itc.x,                        y_bottom), FONT_SIZE)
+    if itc.x < 0: contrast(        fr, itc.text,         (frame_size_x + itc.x,         y_bottom), FONT_SIZE)
+    return fr
 
 
 def analyze_frame(fr):
 
-	gray = cv2.cvtColor(fr, cv2.COLOR_BGR2GRAY)
-	sparrow = [cascade[0].detectMultiScale(gray, scaleFactor = 1.1, minNeighbors = 5, minSize=(30, 30)),
-	           cascade[1].detectMultiScale(gray, scaleFactor = 1.1, minNeighbors = 5, minSize=(30, 30)),
-	           cascade[2].detectMultiScale(gray, scaleFactor = 1.1, minNeighbors = 5, minSize=(30, 30))]
-#	if len(sparrow) > 0:
+    gray = cv2.cvtColor(fr, cv2.COLOR_BGR2GRAY)
+    sparrow = [cascade[0].detectMultiScale(gray, scaleFactor = 1.1, minNeighbors = 5, minSize=(30, 30)),
+               cascade[1].detectMultiScale(gray, scaleFactor = 1.1, minNeighbors = 5, minSize=(30, 30)),
+               cascade[2].detectMultiScale(gray, scaleFactor = 1.1, minNeighbors = 5, minSize=(30, 30))]
+#    if len(sparrow) > 0:
 
-#		save_frame(fr, "positives")
-#	else:
+#        save_frame("positives")
+#    else:
 
-#		save_frame(fr, "negatives")
+#        save_frame("negatives")
 
-	spindex = 0
-	for (x, y, w, h) in sparrow[0]:
+    spindex = 0
+    for (x, y, w, h) in sparrow[0]:
 
-		cv2.rectangle(fr, (x, y), (x + w, y + h), (255, 255, 0), 1)
-		cv2.putText(fr, f"{spindex} {itc.wheel()}", (x, y + 12), simplex, 0.5, (255, 255, 0), 1, cv2.LINE_AA)
-		spindex += 1
-	for (x, y, w, h) in sparrow[1]:
+        cv2.rectangle(fr, (x, y), (x + w, y + h), (255, 255, 0), 1)
+        cv2.putText(fr, f"{spindex} {itc.wheel()}", (x, y + 12), simplex, 0.5, (255, 255, 0), 1, cv2.LINE_AA)
+        spindex += 1
+    for (x, y, w, h) in sparrow[1]:
 
-		cv2.rectangle(fr, (x, y), (x + w, y + h), (255, 0, 255), 2)
-		cv2.putText(fr, 'b1', (x, y - 2), simplex, 0.5, (255, 0, 255), 2, cv2.LINE_AA)
-	for (x, y, w, h) in sparrow[2]:
+        cv2.rectangle(fr, (x, y), (x + w, y + h), (255, 0, 255), 2)
+        cv2.putText(fr, 'b1', (x, y - 2), simplex, 0.5, (255, 0, 255), 2, cv2.LINE_AA)
+    for (x, y, w, h) in sparrow[2]:
 
-		cv2.rectangle(fr, (x, y), (x + w, y + h), (0, 255, 255), 3)
-		cv2.putText(fr, 'b2', (x, y - 2), simplex, 0.5, (0, 255, 255), 3, cv2.LINE_AA)
-		
-	return fr
+        cv2.rectangle(fr, (x, y), (x + w, y + h), (0, 255, 255), 3)
+        cv2.putText(fr, 'b2', (x, y - 2), simplex, 0.5, (0, 255, 255), 3, cv2.LINE_AA)
+        
+    return fr
 
 
 def process_frame(fr):
 
-	analyzed_frame = analyze_frame(fr)
-	labeled_frame = label_frame(analyzed_frame)
-	return labeled_frame
+    analyzed_frame = analyze_frame(fr)
+    labeled_frame = label_frame(analyzed_frame)
+    return labeled_frame
 
 
 def read_stream():
 
-	server.logger.info(f"wait while capturing {sc.video_device} ...")
-	cap = cv2.VideoCapture(sc.video_device)
-	cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-	if not cap.isOpened():
+    server.logger.info(f"wait while capturing {sc.video_device} ...")
+    cap = cv2.VideoCapture(sc.video_device)
+    cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+    if not cap.isOpened():
 
-		print(f"... cannot capture {sc.video_device}")
-		itc.running = False
-	else:
+        print(f"... cannot capture {sc.video_device}")
+        itc.running = False
+    else:
 
-		print(f"... captured {sc.video_device}")
-		itc.running = True
-	read_count = time.perf_counter()
-	while itc.running:
+        print(f"... captured {sc.video_device}")
+        itc.running = True
+    read_count = time.perf_counter()
+    while itc.running:
 
-		if time.perf_counter() - read_count < 1. / sc.fps_limit:
+        if time.perf_counter() - read_count < 1. / sc.fps_limit:
 
-			gevent.sleep(sleeping)
-			continue
+            gevent.sleep(sleeping)
+            continue
 
-		success, raw_frame = cap.read()
-		if not success:
+        success, raw_frame = cap.read()
+        if not success:
 
-			print(f"cannot read {sc.video_device}")
-			read_count = time.perf_counter()
-			gevent.sleep(1)
-			continue
-		raw_frame_resized = cv2.resize(raw_frame, (frame_size_x, frame_size_y))
-		raw_frame_resized_copy = raw_frame_resized.copy()
-		processed_frame = process_frame(raw_frame_resized_copy)
-		with bs_lock:
+            print(f"cannot read {sc.video_device}")
+            read_count = time.perf_counter()
+            gevent.sleep(1)
+            continue
+        raw_frame_resized = cv2.resize(raw_frame, (frame_size_x, frame_size_y))
+        raw_frame_resized_copy = raw_frame_resized.copy()
+        processed_frame = process_frame(raw_frame_resized_copy)
+        with bs_lock:
 
-			itc.raw = raw_frame_resized
-			itc.frame = processed_frame # .copy()
+            itc.raw = raw_frame_resized
+            itc.frame = processed_frame # .copy()
 
-		itc.new_frame()
-		read_count = time.perf_counter()
+        if itc.new_frame():
 
-	cap.release()
+            save_frame("negatives", "random")
+        read_count = time.perf_counter()
+
+    cap.release()
 
 
 def generation():
 
-	gen_count = time.perf_counter()
-	last_frame = None
-	while itc.running:
+    gen_count = time.perf_counter()
+    last_frame = None
+    while itc.running:
 
-		if time.perf_counter() - gen_count < 1. / sc.fps_limit:
+        if time.perf_counter() - gen_count < 1. / sc.fps_limit:
 
-			gevent.sleep(sleeping)
-			continue
+            gevent.sleep(sleeping)
+            continue
 
-		with bs_lock:
+        with bs_lock:
 
-			if itc.frame is None:
+            if itc.frame is None:
 
-				server.logger.warning("frame is None")
-				gevent.sleep(sleeping)
-				continue
-			#if last_frame is not None and np.array_equal(itc.frame, last_frame):
+                server.logger.warning("frame is None")
+                gevent.sleep(sleeping)
+                continue
+            #if last_frame is not None and np.array_equal(itc.frame, last_frame):
 
-				#server.logger.warning("frame repeats")
-			#	 gevent.sleep(sleeping)
-			#	 continue
+                #server.logger.warning("frame repeats")
+            #     gevent.sleep(sleeping)
+            #     continue
 
-			last_frame = itc.frame.copy()
+            last_frame = itc.frame.copy()
 
-		_, jpeg = cv2.imencode('.jpg', last_frame, [cv2.IMWRITE_JPEG_QUALITY, sc.jpeg_quality])
+        _, jpeg = cv2.imencode('.jpg', last_frame, [cv2.IMWRITE_JPEG_QUALITY, sc.jpeg_quality])
 
-		itc.fps_value = 1 / (time.perf_counter() - gen_count)
-		gen_count = time.perf_counter()
+        itc.fps_value = 1 / (time.perf_counter() - gen_count)
+        gen_count = time.perf_counter()
 
-		try:
-			yield (b'--frame\r\n'
-				   b'Content-Type: image/jpeg\r\n\r\n' + jpeg.tobytes() + b'\r\n\r\n')
-		except Exception as e:
-			server.logger.warning(f"client disconnected: {e}")
-			break
+        try:
+            yield (b'--frame\r\n'
+                   b'Content-Type: image/jpeg\r\n\r\n' + jpeg.tobytes() + b'\r\n\r\n')
+        except Exception as e:
+            server.logger.warning(f"client disconnected: {e}")
+            break
 
 
 @server.context_processor
 def serange():
 
-	return dict(title = sc.page_title)
+    return dict(title = sc.page_title)
 
 
 @server.route('/feed')
 def feed():
 
-	return Response(generation(), mimetype = 'multipart/x-mixed-replace; boundary=frame')
+    return Response(generation(), mimetype = 'multipart/x-mixed-replace; boundary=frame')
 
 
 @server.route('/source_code')
 def access_source_code():
+    """ route this file hilited """
+    formatter = HtmlFormatter(style = 'native', full = True, cssclass = "codehilite")
+    try:
 
-	formatter = HtmlFormatter(style = 'native', full = True, cssclass = "codehilite")
-	try:
+        file_path = os.path.abspath(__file__)
+        with open(file_path, "r") as f:
 
-		file_path = os.path.abspath(__file__)
-		with open(file_path, "r") as f:
-
-			src = f.read()
-		size = len(src.splitlines())
-		# escaped_code = escape(src)
-		hi_code = highlight(src, PythonLexer(), formatter)
-		return render_template('code.html', code = hi_code, size = size)
-	except Exception as e:
+            src = f.read()
+        size = len(src.splitlines())
+        # escaped_code = escape(src)
+        hi_code = highlight(src, PythonLexer(), formatter)
+        return render_template('code.html', code = hi_code, size = size)
+    except Exception as e:
  
-		server.logger.error(f"error while reading source code: {e}")
-		return f"error: {e}", 500
+        server.logger.error(f"error while reading source code: {e}")
+        return f"error: {e}", 500
 
 
 @server.route('/', methods = ['GET'])
 def index():
 
-	audio_files = []
-	if os.path.exists(AUDIO_DIR):
+    audio_files = []
+    if os.path.exists(AUDIO_DIR):
 
-		all_files = os.listdir(AUDIO_DIR)
-		audio_files =  [f for f in all_files if f.endswith(".mp3")]
-	else:
+        all_files = os.listdir(AUDIO_DIR)
+        audio_files =  [f for f in all_files if f.endswith(".mp3")]
+    else:
 
-		return "maintenance", 200
-	try:
+        return "maintenance", 200
+    try:
 
-		return render_template('main.html', audio_files=audio_files)
-	except Exception as e:
+        return render_template('main.html', audio_files=audio_files)
+    except Exception as e:
 
-		return f"error: {e}"
+        return f"error: {e}"
 
 
 @server.route('/static/sound/<filename>', methods = ['GET'])
 def serve_audio(filename):
 
-	itc.new_message(filename)
-	return send_from_directory(AUDIO_LOC, filename)
+    itc.new_message(filename)
+    return send_from_directory(AUDIO_LOC, filename)
 
 
 @server.route('/sitemap.xml', methods=['GET'])
 def sitemap():
-	pages = []
-	last_modified = datetime.datetime.now().strftime("%Y-%m-%d")
+    pages = []
+    last_modified = datetime.datetime.now().strftime("%Y-%m-%d")
 
-	for rule in server.url_map.iter_rules():
+    for rule in server.url_map.iter_rules():
 
-		if "GET" in rule.methods and len(rule.arguments) == 0:  # Ignore dynamic routes
+        if "GET" in rule.methods and len(rule.arguments) == 0:  # Ignore dynamic routes
 
-			url = url_for(rule.endpoint, _external=True)
-			pages.append(f"""
-				<url>
-					<loc>{url}</loc>
-					<lastmod>{last_modified}</lastmod>
-					<changefreq>weekly</changefreq>
-					<priority>0.5</priority>
-				</url>""")
+            url = url_for(rule.endpoint, _external=True)
+            pages.append(f"""
+                <url>
+                    <loc>{url}</loc>
+                    <lastmod>{last_modified}</lastmod>
+                    <changefreq>weekly</changefreq>
+                    <priority>0.5</priority>
+                </url>""")
 
-	sitemap_xml = f"""<?xml version="1.0" encoding="UTF-8"?>
-	<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-		{''.join(pages)}
-	</urlset>"""
+    sitemap_xml = f"""<?xml version="1.0" encoding="UTF-8"?>
+    <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+        {''.join(pages)}
+    </urlset>"""
 
-	return Response(sitemap_xml, mimetype = "application/xml")
+    return Response(sitemap_xml, mimetype = "application/xml")
 
 
 @server.before_request
 def before_request():
 
-	ip = request.remote_addr
-	fp = request.full_path
-	# server.logger.info(f"{ip} raw method = {request.method}")
-	# request.method.encode("ascii", "ignore")
-	# server.logger.info(f"{ip} encoded method = {request.method}")
-	met = request.method
-	if met != 'GET':
+    ip = request.remote_addr
+    fp = request.full_path
+    # server.logger.info(f"{ip} raw method = {request.method}")
+    # request.method.encode("ascii", "ignore")
+    # server.logger.info(f"{ip} encoded method = {request.method}")
+    met = request.method
+    if met != 'GET':
 
-		ip_ban.block(ip)
-		server.logger.warning(f"method not allowed - save {ip} as banned and return error")
-		return "method not allowed {met}", 403
-	elif is_not_ascii(met) or is_not_ascii(fp):
+        ip_ban.block(ip)
+        server.logger.warning(f"method not allowed - save {ip} as banned and return error")
+        return "method not allowed {met}", 403
+    elif is_not_ascii(met) or is_not_ascii(fp):
 
-		ip_ban.block(ip)
-		server.logger.warning(f"non-ascii request - save {ip} as banned and return error")
-		return "non-ascii characters in request", 403
+        ip_ban.block(ip)
+        server.logger.warning(f"non-ascii request - save {ip} as banned and return error")
+        return "non-ascii characters in request", 403
 
-#		return "you have been added to the black list", 403
-	# elif ip_ban.is_banned(client_ip):
+#        return "you have been added to the black list", 403
+    # elif ip_ban.is_banned(client_ip):
 
-	#	 server.logger.warning(f"{client_ip} is in the list of banned")
-	#	 return "you are already in the black list", 403
-	else:
+    #     server.logger.warning(f"{client_ip} is in the list of banned")
+    #     return "you are already in the black list", 403
+    else:
 
-		with bs_lock:
+        with bs_lock:
 
-			client_set.add(ip)
+            client_set.add(ip)
 
 
 @server.after_request
@@ -462,51 +465,51 @@ def after_request(response): return response
 @server.route('/src')
 def get_text():
 
-	return jsonify({"text": lorem.paragraph()})
+    return jsonify({"text": lorem.paragraph()})
 
 
 @server.route('/client_counter')
 def get_clients():
 
-	with bs_lock:
+    with bs_lock:
 
-		return f"{len(client_set)}"
+        return f"{len(client_set)}"
 
 
 def run_server():
 
-	serve = WSGIServer(("0.0.0.0", sc.flask_port), server)
-	serve.serve_forever()
+    serve = WSGIServer(("0.0.0.0", sc.flask_port), server)
+    serve.serve_forever()
 
 
 if __name__ == '__main__':
 
-	sc.dump()
-	pool = Pool(sc.gevent_workers)
+    sc.dump()
+    pool = Pool(sc.gevent_workers)
 
-	timestamp = datetime.datetime.now().strftime("%H:%M:%S")
-	server.logger.info(f"starting flask server at {timestamp}")
+    timestamp = datetime.datetime.now().strftime("%H:%M:%S")
+    server.logger.info(f"starting flask server at {timestamp}")
 
-	pool.spawn(debug_wrapper, run_server)
-	server.logger.info("starting stream")
+    pool.spawn(debug_wrapper, run_server)
+    server.logger.info("starting stream")
 
-	pool.spawn(debug_wrapper, read_stream)
-	server.logger.info("starting keyboard listener")
+    pool.spawn(debug_wrapper, read_stream)
+    server.logger.info("starting keyboard listener")
 
-	pool.spawn(debug_wrapper, keyboard_listener)
-	# server.logger.info(f"ban_count {ip_ban.ban_count} ban_seconds {ip_ban.ban_seconds}")
-	#server.logger.info(f"ip_ban_list ({len(ip_ban._ip_ban_list)})")
-	#server.logger.info("\nip_ban_list: ".join(ip_ban._ip_ban_list))
-	print("keyboard commands:")
-	print("'n' to save a negative image")
-	print("'p' to save a positive image")
-	print("'q' to quit the application")
-	print("standby")
+    pool.spawn(debug_wrapper, keyboard_listener)
+    # server.logger.info(f"ban_count {ip_ban.ban_count} ban_seconds {ip_ban.ban_seconds}")
+    #server.logger.info(f"ip_ban_list ({len(ip_ban._ip_ban_list)})")
+    #server.logger.info("\nip_ban_list: ".join(ip_ban._ip_ban_list))
+    print("keyboard commands:")
+    print("'n' to save a negative image")
+    print("'p' to save a positive image")
+    print("'q' to quit the application")
+    print("standby")
 
-	while itc.running:
+    while itc.running:
 
-		gevent.sleep(0.5)
-	# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-	server.logger.warning("stop signal detected\n")
-	pool.kill()
-	server.logger.info("all tasks stopped\n")
+        gevent.sleep(0.5)
+    # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+    server.logger.warning("stop signal detected\n")
+    pool.kill()
+    server.logger.info("all tasks stopped\n")
