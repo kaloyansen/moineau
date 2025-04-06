@@ -34,6 +34,7 @@ from pygments import highlight
 from pygments.lexers import PythonLexer
 from pygments.formatters import HtmlFormatter
 
+
 class SecureContext:
     """ secure context """
     def __init__(self, birdlives):
@@ -49,25 +50,20 @@ class SecureContext:
         self.flask_port     = int(self.safe("FLASK_PORT"))
         self.ban_count      = int(self.safe("IP_BAN_LIST_COUNT"))
         self.ban_seconds    = int(self.safe("IP_BAN_LIST_SECONDS"))
-    def safe(self, var):
+    def safe(self, var: str):
         """ let it be safe """
         good = os.getenv(var, 0)
-        if not good:
-            """ warn if not good """
-            print(f"not good: cannot find {var}")
+        if not good: print(f"not good: cannot find {var}")
         return good
     def dump(self):
         """ print all """
-        print()
-        print('=' * 16, 'secure context', '=' * 16)
-        for key, value in self.__dict__.items():
-            """ print one """
-            print(f"{key}: {value}")
-        print('^' * 44)
+        print('\n', '=' * 16, 'secure context', '=' * 16)
+        for key, value in self.__dict__.items(): print(key, value)
+        print('=' * 44, '\n')
 
 
 class InterThreadCommunication:
-
+    """ shared data """
     def __init__(self, font_name, font_size, frame_size):
 
         self.font_name = font_name
@@ -83,7 +79,7 @@ class InterThreadCommunication:
         self.count = 0
         self.save_random_event = 11111
         self.new_message()
-    def new_message(self, message = 0, persist = 111, speed = 6):
+    def new_message(self, message = 0, persist = 108, speed = 6):
 
         self.speed = speed
         self.persist = persist
@@ -91,7 +87,7 @@ class InterThreadCommunication:
         if message: self.text = message
         else: self.text = lorem.sentence()[:37].rstrip('.') + '!'
         self.size = cv2.getTextSize(self.text, self.font_name, self.font_size, 1)[0]
-    def new_frame(self):
+    def new_frame(self) -> bool:
 
         self.count += 1
         self.count9 = (self.count9 + 1) % 9
@@ -119,7 +115,7 @@ cascade = [cv2.CascadeClassifier(f"{sc.work_directory}/dataset/classifier/cascad
            cv2.CascadeClassifier(f"{sc.work_directory}/cascade/bird2.xml")]
 
 if sc.log_file: logging.basicConfig(level = logging.INFO, encoding = 'utf-8', filename = f"{sc.log_file}")
-else:           logging.basicConfig(level = logging.INFO, encoding = 'utf-8')
+else: logging.basicConfig(level = logging.INFO, encoding = 'utf-8')
 
 ip_ban = IpBan(ban_count = sc.ban_count, ban_seconds = sc.ban_seconds, persist = True, record_dir = f"{sc.work_directory}/ban")
 ip_ban.init_app(server)
@@ -148,7 +144,7 @@ def debug_wrapper(func, *args):
     except Exception as e: server.logger.error(f"error in {func.__name__}: {e}")
 
 
-def is_not_ascii(mot):
+def is_not_ascii(mot: str) -> bool:
 
     for c in mot:
 
@@ -183,12 +179,12 @@ def keyboard_listener():
         gevent.sleep(0.1)  # Yield control back to gevent
 
 
-def save_frame(label: str, message = "saved"):
+def save_frame(label: str, message = ''):
 
     filename = f"dataset/{label}/{int(time.time())}"
-    filepath = f"{sc.work_directory}/{filename}.jpg"
+    filepath = f"{sc.work_directory}/{filename}{message}.jpg"
+    print(f"save {message} {filepath}")
     cv2.imwrite(filepath, itc.raw)
-    print(f"{message} {filepath}")
     itc.new_message(f" {filename}")
     print("standby")
 
@@ -370,8 +366,8 @@ def index():
     audio_files = []
     if os.path.exists(AUDIO_DIR):
 
-        all_files = os.listdir(AUDIO_DIR)
-        audio_files =  [f for f in all_files if f.endswith(".mp3")]
+        list_dir = os.listdir(AUDIO_DIR)
+        audio_files =  [f for f in list_dir if f.endswith(".mp3")]
     else:
 
         return "maintenance", 200
@@ -490,14 +486,11 @@ if __name__ == '__main__':
     #server.logger.info(f"ip_ban_list ({len(ip_ban._ip_ban_list)})")
     #server.logger.info("\nip_ban_list: ".join(ip_ban._ip_ban_list))
     print("keyboard commands:")
-    print("'n' to save a negative image")
-    print("'p' to save a positive image")
-    print("'q' to quit the application")
-    print("standby")
+    print("[n] save a negative image")
+    print("[p] save a positive image")
+    print("[q] quit the application")
 
-    while itc.running:
-
-        gevent.sleep(0.5)
+    while itc.running: gevent.sleep(0.5)
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     server.logger.warning("stop signal detected\n")
     pool.kill()

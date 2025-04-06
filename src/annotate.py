@@ -12,12 +12,7 @@ window_name = "annotation tool"
 if os.path.exists(output_csv):
     annotations = pd.read_csv(output_csv)
 else:
-    annotations = pd.DataFrame(columns=["filename",
-                                        "x",
-                                        "y",
-                                        "width",
-                                        "height",
-                                        "bird_id"])
+    annotations = pd.DataFrame(columns=["filename", "x", "y", "width", "height", "bird_id"])
     annotations.to_csv(output_csv, index = False)
 
 def resize_image(img, scale):
@@ -42,7 +37,7 @@ def annotate_image(img_path, img_name):
     if img is None:
 
         print(f"cannot read {img_path}")
-        return -1
+        return 2
     
     display_img = resize_image(img, scale_factor)
     original_height, original_width = img.shape[:2]
@@ -146,7 +141,7 @@ while True:
     if current_index > index_max: current_index = 0
     img_name = image_file[current_index]
     img_path = os.path.join(image_folder, img_name)
-    print(f"\nannotating {img_name} ({current_index}/{index_max})")
+    print(f"\n{img_folder}{img_name} ({current_index}/{index_max})")
     direction = annotate_image(img_path, img_name)
     if not direction is None: current_index += direction
     # if direction is None:  # Error loading image
@@ -154,6 +149,6 @@ while True:
     # else:
     #     current_index += direction
 
-print("\nAnnotation complete!")
-print(f"Total birds annotated: {len(annotations)}")
-print(f"Saved to: {output_csv}")
+print("\nannotation complete")
+print(f"total birds annotated: {len(annotations)}")
+print(f"saved to {output_csv}")
