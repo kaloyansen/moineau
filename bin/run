@@ -27,4 +27,5 @@ echo -n starting web application on 0.0.0.0:$FLASK_PORT
 echo \ log file $LOG_FILE
 exec $FLASK_WORK_DIRECTORY/src/$FLASK_CODE.py
 
-echo
+# cd $FLASK_WORK_DIRECTORY/src 
+# exec gunicorn -k gevent $FLASK_CODE:server
