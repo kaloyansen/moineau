@@ -14,6 +14,8 @@ VECTOR=$POSITIVES.vec
 CLASSIFIER=$DATASET/classifier
 SERVER_ADDRESS=192.168.0.104
 
+NUM_STAGES=16
+
 quit() {
     deactivate
     fusermount -u $DATASET || echo cannot unmount sshfs
@@ -21,7 +23,6 @@ quit() {
     exit $1 || kill $$
 }
 
-source $ROOTDIR/venv/bin/activate
 sshfs $USER@$SERVER_ADDRESS:$DATASET $DATASET
 if [ $? ]; then
     echo sshfs success
@@ -30,38 +31,24 @@ else
     quit 4
 fi
 
-neg=`ls $NEGATIVES | wc -l` || quit 166
 pos=`ls $POSITIVES | wc -l` || quit 111
-find $NEGATIVES -type f -name "*.jpg" > $NEGATIVES.txt
+neg=`ls $NEGATIVES | wc -l` || quit 166
 
 echo pos: $pos, neg: $neg
+source $ROOTDIR/venv/bin/activate
 
 case $1 in
     create)
-	$SRC/csv2txt.py
+	$SRC/csv2txt.py 
 	opencv_createsamples -info $OUTPUT_TXT -num $pos -w 24 -h 24 -vec $VECTOR
 	;;
     train)
-	opencv_traincascade -data $CLASSIFIER -vec $VECTOR -bg $NEGATIVES.txt -numPos $pos -numNeg $neg -numStages 20 -w 24 -h 24
+	rm -fv $CLASSIFIER/*.xml
+	find $NEGATIVES -type f -name "*.jpg" > $NEGATIVES.txt
+	opencv_traincascade -data $CLASSIFIER -vec $VECTOR -bg $NEGATIVES.txt -numPos $pos -numNeg $neg -numStages $NUM_STAGES -w 24 -h 24
 	;;
     *)
 	$SRC/annotate.py
 	;;
 esac	
-
-
-# if [ $1 == 'create' ]; then
-#     $SRC/csv2txt.py
-#     opencv_createsamples -info $OUTPUT_TXT -num $pos -w 24 -h 24 -vec $VECTOR
-# elif [ $1 == 'train' ]; then
-#     opencv_traincascade -data $CLASSIFIER -vec $VECTOR -bg $NEGATIVES.txt -numPos $pos -numNeg $neg -numStages 10 -w 24 -h 24
-# else
-#     $SRC/annotate.py
-# fi
-
-
-
 echo ok && quit 0 || kill $$
-
-
-

@@ -225,9 +225,7 @@ def label_frame(fr):
 def analyze_frame(fr):
 
     gray = cv2.cvtColor(fr, cv2.COLOR_BGR2GRAY)
-    sparrow = [cascade[0].detectMultiScale(gray, scaleFactor = 1.1, minNeighbors = 5, minSize=(30, 30)),
-               cascade[1].detectMultiScale(gray, scaleFactor = 1.1, minNeighbors = 5, minSize=(30, 30)),
-               cascade[2].detectMultiScale(gray, scaleFactor = 1.1, minNeighbors = 5, minSize=(30, 30))]
+    sparrow = cascade[0].detectMultiScale(gray, scaleFactor = 1.1, minNeighbors = 5, minSize=(30, 30))
 #    if len(sparrow) > 0:
 
 #        save_frame("positives")
@@ -236,20 +234,11 @@ def analyze_frame(fr):
 #        save_frame("negatives")
 
     spindex = 0
-    for (x, y, w, h) in sparrow[0]:
+    for (x, y, w, h) in sparrow:
 
         cv2.rectangle(fr, (x, y), (x + w, y + h), (255, 255, 0), 1)
         cv2.putText(fr, f"{spindex} {itc.wheel()}", (x, y + 12), simplex, 0.5, (255, 255, 0), 1, cv2.LINE_AA)
         spindex += 1
-    for (x, y, w, h) in sparrow[1]:
-
-        cv2.rectangle(fr, (x, y), (x + w, y + h), (255, 0, 255), 2)
-        cv2.putText(fr, 'b1', (x, y - 2), simplex, 0.5, (255, 0, 255), 2, cv2.LINE_AA)
-    for (x, y, w, h) in sparrow[2]:
-
-        cv2.rectangle(fr, (x, y), (x + w, y + h), (0, 255, 255), 3)
-        cv2.putText(fr, 'b2', (x, y - 2), simplex, 0.5, (0, 255, 255), 3, cv2.LINE_AA)
-        
     return fr
 
 
