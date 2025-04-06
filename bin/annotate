@@ -11,7 +11,7 @@ export OUTPUT_CSV=$DATASET/annotations.csv
 export OUTPUT_TXT=$DATASET/annotations.txt
 export SCALE_FACTOR=3
 VECTOR=$POSITIVES.vec
-CLASSIFIER=$ROOTDIR/classifier
+CLASSIFIER=$DATASET/classifier
 SERVER_ADDRESS=192.168.0.104
 
 quit() {

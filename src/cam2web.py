@@ -114,7 +114,7 @@ os.makedirs(f"{sc.work_directory}/dataset/positives", exist_ok = True)
 os.makedirs(f"{sc.work_directory}/dataset/negatives", exist_ok = True)
 os.makedirs(f"{sc.work_directory}/ban", exist_ok = True)
 
-cascade = [cv2.CascadeClassifier(f"{sc.work_directory}/classifier/cascade.xml"),
+cascade = [cv2.CascadeClassifier(f"{sc.work_directory}/dataset/classifier/cascade.xml"),
            cv2.CascadeClassifier(f"{sc.work_directory}/cascade/bird1.xml"),
            cv2.CascadeClassifier(f"{sc.work_directory}/cascade/bird2.xml")]
 
