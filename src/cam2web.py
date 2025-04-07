@@ -69,6 +69,7 @@ class InterThreadCommunication:
     """ shared data """
     def __init__(self, font, font_size, frame_size, save_random):
 
+        self.start = self.get_time()
         self.font = font
         self.font_size = font_size
         self.frame_size = frame_size
@@ -91,10 +92,10 @@ class InterThreadCommunication:
         self.x = frame_size[0]
         if message: self.text = message
         else: self.text = lorem.sentence()[:37].rstrip('.').lower()
-        self.size = self.get_size(self.text) #  = cv2.getTextSize(self.text, self.font, self.font_size, 1)[0]
-    def get_size(self, text: str) -> float:
-
-        return cv2.getTextSize(text, self.font, self.font_size, 1)[0]
+        self.size = self.get_size(self.text)
+    def wheel(self) -> str: return self.wheel_state[self.wheel_index]
+    def get_time(self, time_format = "%y%m%d-%H%M%S.%f") -> str: return datetime.datetime.now().strftime(time_format)
+    def get_size(self, text: str) -> float: return cv2.getTextSize(text, self.font, self.font_size, 1)[0]
     def new_frame(self) -> bool:
 
         self.count += 1
@@ -112,9 +113,6 @@ class InterThreadCommunication:
             if key == 'raw' or key == 'frame': continue
             print(key, value)
         print('=' * 44, '\n')
-    def wheel(self) -> str:
-
-        return self.wheel_state[self.wheel_index]
 
 
 sc = SecureContext(166)
@@ -202,14 +200,13 @@ def save_frame(label: str, message = '') -> int:
         print(f"error in save_frame: unexpected label {label}")
         itc.running = False
         return 1
-    now = int(time.time())
-    filepath = f"{save_in}/{now}{message}.jpg"
+    filepath = f"{save_in}/{itc.get_time()}{message}.jpg"
     cv2.imwrite(filepath, itc.raw)
     itc.pos = len(os.listdir(positives))
     itc.neg = len(os.listdir(negatives))
     show = f"{label * 3} (+{itc.pos}, -{itc.neg}) {message}"
     print(f"{show} {filepath}")
-    itc.new_message(f"{show} {now}")
+    itc.new_message(f"{show} {itc.get_time()}")
     print("standby")
     return 0
 
@@ -226,9 +223,9 @@ def outline(fr: np.ndarray, text: str, position: tuple):
 
 def label_frame(fr: np.ndarray) -> np.ndarray:
 
-    maintenant = datetime.datetime.now()
-    timestamp = maintenant.strftime("%H:%M:%S")
-    timestamp = f"{timestamp}.{itc.count9} "
+    #maintenant = datetime.datetime.now()
+    #timestamp = maintenant.strftime("%H:%M:%S")
+    timestamp = f"{itc.get_time('%H:%M:%S')}.{itc.count9} "
     video_title = f" {sc.page_title}{itc.fps_value:6.2f} Hz"
     y_bottom = frame_size[1] - itc.size[1]
     x_right = frame_size[0] - itc.get_size(timestamp)[0]
@@ -307,7 +304,7 @@ def read_stream():
 
             itc.raw = raw_frame_resized
             itc.frame = processed_frame # .copy()
-        if itc.new_frame(): save_frame('-', 'random')
+        if itc.new_frame(): save_frame('-', '.random')
         itc.fps_value = 1 / (time.perf_counter() - read_count)
         itc.save_random = int(itc.fps_value * sc.save_rand_min * 60)
         read_count = time.perf_counter()
@@ -408,14 +405,14 @@ def index():
 @server.route('/static/sound/<filename>', methods = ['GET'])
 def serve_audio(filename):
 
-    itc.new_message(filename)
+    itc.new_message(filename) # does not work
     return send_from_directory('/static/audio', filename)
 
 
 @server.route('/sitemap.xml', methods=['GET'])
 def sitemap():
     pages = []
-    last_modified = datetime.datetime.now().strftime("%Y-%m-%d")
+    last_modified = itc.get_time("%Y-%m-%d")
 
     for rule in server.url_map.iter_rules():
 
@@ -487,8 +484,8 @@ def run_server():
 if __name__ == '__main__':
 
     pool = Pool(sc.gevent_workers)
-    timestamp = datetime.datetime.now().strftime("%H:%M:%S")
-    server.logger.info(f"starting flask server at {timestamp}")
+    
+    server.logger.info(f"starting flask server at {itc.get_time()}")
     pool.spawn(debug_wrapper, run_server)
     server.logger.info("starting stream")
     pool.spawn(debug_wrapper, read_stream)
