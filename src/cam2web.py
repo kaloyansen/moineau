@@ -223,8 +223,6 @@ def outline(fr: np.ndarray, text: str, position: tuple):
 
 def label_frame(fr: np.ndarray) -> np.ndarray:
 
-    #maintenant = datetime.datetime.now()
-    #timestamp = maintenant.strftime("%H:%M:%S")
     timestamp = f"{itc.get_time('%H:%M:%S')}.{itc.count9} "
     video_title = f" {sc.page_title}{itc.fps_value:6.2f} Hz"
     y_bottom = frame_size[1] - itc.size[1]
@@ -329,12 +327,6 @@ def generation():
                 server.logger.warning("frame is None")
                 gevent.sleep(sleeping)
                 continue
-            #if last_frame is not None and np.array_equal(itc.frame, last_frame):
-
-                #server.logger.warning("frame repeats")
-            #     gevent.sleep(sleeping)
-            #     continue
-
             last_frame = itc.frame.copy()
 
         _, jpeg = cv2.imencode('.jpg', last_frame, [cv2.IMWRITE_JPEG_QUALITY, sc.jpeg_quality])
