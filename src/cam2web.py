@@ -95,7 +95,7 @@ class InterThreadCommunication:
         self.size = self.get_size(self.text)
     def wheel(self) -> str: return self.wheel_state[self.wheel_index]
     def get_time(self, time_format = "%y%m%d-%H%M%S.%f") -> str: return datetime.datetime.now().strftime(time_format)
-    def get_size(self, text: str) -> float: return cv2.getTextSize(text, self.font, self.font_size, 1)[0]
+    def get_size(self, text: str): return cv2.getTextSize(text, self.font, self.font_size, 1)[0]
     def new_frame(self) -> bool:
 
         self.count += 1
