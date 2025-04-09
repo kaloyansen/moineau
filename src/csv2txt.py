@@ -3,21 +3,22 @@
 import csv
 import os
 
-output_csv = os.getenv("OUTPUT_CSV", False)
-output_txt = os.getenv("OUTPUT_TXT", False)
+annotate_csv = os.getenv("ANNOTATE_CSV", False)
+annotate_txt = os.getenv("ANNOTATE_TXT", False)
+positives = os.getenv("POSITIVES", False)
 
-if not output_csv or not output_txt:
+if not annotate_csv or not annotate_txt or not positives:
 
     print("csv2txt: verify environment variables")
     exit(1)
 
-with open(output_csv, newline = '') as csvfile, open(output_txt, 'w') as out:
+with open(annotate_csv, newline = '') as csvfile, open(annotate_txt, 'w') as txtfile:
 
     reader = csv.DictReader(csvfile)
     for row in reader:
 
         filename = row['filename']
         x, y, w, h = row['x'], row['y'], row['width'], row['height']
-        out.write(f"positives/{filename} 1 {x} {y} {w} {h}\n")
-print(f"{output_csv} converted to {output_txt}")
+        txtfile.write(f"{positives}/{filename} 1 {x} {y} {w} {h}\n")
+print(f"{annotate_csv} converted to {annotate_txt}")
 exit(0)

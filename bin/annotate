@@ -2,19 +2,20 @@
 
 REAL=`realpath $0`
 OU=`dirname $REAL`
-ROOTDIR=$OU/..
+ROOTDIR=`realpath $OU/..`
 SRC=$ROOTDIR/src
-DATASET=$ROOTDIR/dataset
+export DATASET=$ROOTDIR/dataset
 NEGATIVES=$DATASET/negatives
 export POSITIVES=$DATASET/positives
-export OUTPUT_CSV=$DATASET/annotations.csv
-export OUTPUT_TXT=$DATASET/annotations.txt
+export ANNOTATE_CSV=$DATASET/annotations.csv
+export ANNOTATE_TXT=$DATASET/annotations.txt
+export ANNOTATE_BKP=$DATASET/annotations.bkp
 export SCALE_FACTOR=3
-VECTOR=$POSITIVES.vec
+export VECTOR=$POSITIVES.vec
 CLASSIFIER=$DATASET/classifier
-SERVER_ADDRESS=192.168.0.104
+SERVER_IP=192.168.0.104
 
-NUM_STAGES=16
+NUM_STAGES=10
 
 quit() {
     deactivate
@@ -23,7 +24,7 @@ quit() {
     exit $1 || kill $$
 }
 
-sshfs $USER@$SERVER_ADDRESS:$DATASET $DATASET
+sshfs $USER@$SERVER_IP:$DATASET $DATASET
 if [ $? ]; then
     echo sshfs success
 else
@@ -38,17 +39,29 @@ echo pos: $pos, neg: $neg
 source $ROOTDIR/venv/bin/activate
 
 case $1 in
+    fuck)
+	$SRC/fuck.py
+	;;
+    convert)
+	$SRC/csv2txt.py
+	;;
     create)
-	$SRC/csv2txt.py 
-	opencv_createsamples -info $OUTPUT_TXT -num $pos -w 24 -h 24 -vec $VECTOR
+	echo `realpath $ANNOTATE_TXT`
+	opencv_createsamples -info $ANNOTATE_TXT -num $pos -w 24 -h 24 -vec $VECTOR
+	;;
+    check)
+	$SRC/check_vector.py
+	;;
+    verify)
+	$SRC/verify_annotation.py
 	;;
     train)
 	rm -fv $CLASSIFIER/*.xml
 	find $NEGATIVES -type f -name "*.jpg" > $NEGATIVES.txt
-	opencv_traincascade -data $CLASSIFIER -vec $VECTOR -bg $NEGATIVES.txt -numPos $pos -numNeg $neg -numStages $NUM_STAGES -w 24 -h 24
+	opencv_traincascade -data $CLASSIFIER -vec $VECTOR -bg $NEGATIVES.txt -numPos 300 -numNeg $neg -numStages $NUM_STAGES -w 24 -h 24
 	;;
     *)
 	$SRC/annotate.py
 	;;
 esac	
-echo ok && quit 0 || kill $$
+quit 0

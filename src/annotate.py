@@ -2,153 +2,150 @@
 
 import cv2
 import os
-import pandas as pd
+#from pathlib import Path
+import shutil
 
-image_folder = os.getenv("POSITIVES")
-output_csv = os.getenv("OUTPUT_CSV")
-scale_factor = int(os.getenv("SCALE_FACTOR"))
-window_name = "annotation tool"
+folder = os.getenv('POSITIVES')
+annofile = os.getenv('ANNOTATE_TXT')
+annobkp = os.getenv('ANNOTATE_BKP')
+scale_factor = int(os.getenv('SCALE_FACTOR'))
+annodict = {}
 
-if os.path.exists(output_csv):
-    annotations = pd.read_csv(output_csv)
-else:
-    annotations = pd.DataFrame(columns=["filename", "x", "y", "width", "height", "bird_id"])
-    annotations.to_csv(output_csv, index = False)
+
+def quit(message: str, code: int):
+
+    print(message)
+    exit(code)
+
+
+def load_data():
+
+    with open(annofile) as f:
+
+        for line in f:
+
+            mot = line.strip().split()
+            filename = mot[0]
+            num = int(mot[1])
+            boxes = [(int(mot[i]), int(mot[i + 1]), int(mot[i + 2]), int(mot[i + 3])) for i in range(2, 2 + num * 4, 4)]
+            annodict[filename] = boxes
+    print("annotations loaded from", annofile)
+
+
+def save_data():
+
+    with open(annofile, 'w') as f:
+
+        for filename, boxes in annodict.items():
+
+            #absolute = Path(absolute)
+            #base = Path("/home/yocto/moineau/dataset")
+            #filename = absolute.relative_to(base)
+            line = f"{filename} {len(boxes)}"
+            for (x, y, w, h) in boxes: line += f" {x} {y} {w} {h}"
+            f.write(line + "\n")
+    print("annotations saved to", annofile)            
+
 
 def resize_image(img, scale):
-    """Resize image while maintaining aspect ratio"""
+    """ resize image while maintaining aspect ratio """
     width = int(img.shape[1] * scale)
     height = int(img.shape[0] * scale)
-    return cv2.resize(img, (width, height), interpolation=cv2.INTER_AREA)
+    return cv2.resize(img, (width, height), interpolation = cv2.INTER_AREA)
 
-def load_annotation(img_name):
-    """load existing annotations for this image"""
-    if not os.path.exists(output_csv): return []
-    existing = annotations[annotations['filename'] == img_name]
-    birds = []
-    for _, row in existing.iterrows():
 
-        birds.append((row['x'], row['y'], row['width'], row['height']))
-    return birds
-
-def annotate_image(img_path, img_name):
-    """ annotate all birds in a single image """
+def annotate_image(img_name: str) -> int:
+    """ annotate image """
+    global title
+    img_path = os.path.join(folder, img_name)
     img = cv2.imread(img_path)
     if img is None:
 
         print(f"cannot read {img_path}")
         return 2
-    
     display_img = resize_image(img, scale_factor)
     original_height, original_width = img.shape[:2]
     display_height, display_width = display_img.shape[:2]
     
-    cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
-    cv2.resizeWindow(window_name, display_width, display_height)
-    
-    # load existing annotations for this image
-    birds = load_annotation(img_name)
-    bird_count = len(birds)
+    cv2.namedWindow(title, cv2.WINDOW_NORMAL)
+    cv2.resizeWindow(title, display_width, display_height)
+
+    key = f"positives/{img_name}"
+    if key in annodict.keys(): boxes = annodict[key]
+    else: boxes = []
+    count = len(boxes)
+    print(count, 'annotations found')
     
     while True:
+        """ control loop """
         temp_img = display_img.copy()
-        
-        # draw boxes
-        for i, (x, y, w, h) in enumerate(birds):
+        for i, (x, y, w, h) in enumerate(boxes):
             """ scale coordinates for display """
             dx = int(x * scale_factor)
             dy = int(y * scale_factor)
             dw = int(w * scale_factor)
             dh = int(h * scale_factor)
-            cv2.rectangle(temp_img, (dx, dy), (dx + dw, dy + dh), (0, 255, 0), 2)
-            cv2.putText(temp_img, f"bird {i+1}", (dx, dy-10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-        cv2.imshow(window_name, temp_img)
+            cv2.rectangle(temp_img, (dx, dy), (dx + dw, dy + dh), (255, 0, 255), 2)
+            cv2.putText(temp_img, f"{i}", (dx, dy - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+        cv2.imshow(title, temp_img)
         key = cv2.waitKey(1) & 0xFF
         if key == ord('b'):
-            """ a bird detected """
-            roi = cv2.selectROI(window_name, display_img, fromCenter=False)
+            """ new object """
+            roi = cv2.selectROI(title, display_img, fromCenter = False)
             if roi != (0, 0, 0, 0):
                 """ convert ROI back to original image coordinates """
                 x = int(roi[0] / scale_factor)
                 y = int(roi[1] / scale_factor)
                 w = int(roi[2] / scale_factor)
                 h = int(roi[3] / scale_factor)
-                birds.append((x, y, w, h))
-                bird_count += 1
+                boxes.append((x, y, w, h))
+                count += 1
         elif key == ord('d'):
             """ delete last bird """
-            if birds:
-                birds.pop()
-                bird_count -= 1
+            if boxes:
+                boxes.pop()
+                count -= 1
         elif key == ord('s'):
             """ save and next """
-            save_annotation(img_name, birds)
+            save_data()
             cv2.destroyAllWindows()
             return 1
-        elif key == ord('p'):
+        elif key == 8:
             """ previous image """
             cv2.destroyAllWindows()
             return -1
-        elif key == ord('n'):
-            """ previous image """
+        elif key == ord(' '):
+            """ next image """
             cv2.destroyAllWindows()
             return 1
         elif key == ord('q'):
             """ quit program """
             cv2.destroyAllWindows()
-            exit()
-    cv2.destroyAllWindows()
-    return 0
-
-def save_annotation(img_name, birds):
-    """ save csv annotation """
-    global annotations
-    # remove old annotations for this image
-    annotations = annotations[annotations['filename'] != img_name]
-    # add new annotations
-    new_entries = []
-    for i, (x, y, w, h) in enumerate(birds):
-
-        new_entries.append({
-            "filename": img_name,
-            "x": x,
-            "y": y,
-            "width": w,
-            "height": h,
-            "bird_id": i+1
-        })
-    new_df = pd.DataFrame(new_entries)
-    annotations = pd.concat([annotations, new_df], ignore_index=True)
-    annotations.to_csv(output_csv, index=False)
-    print(f"Saved {len(birds)} birds for {img_name}")
+            return -1e6
 
 
-# get sorted list of images
-image_file = sorted([f for f in os.listdir(image_folder) if f.endswith(('.png', '.jpg', '.jpeg'))])
-index_max = len(image_file) - 1
+if not os.path.exists(annofile): quit(f"cannot find {annofile}", 1)
+if not os.path.exists(folder): quit(f"cannot find {folder}", 1)
+shutil.copy(annofile, annobkp)
+load_data()
+ilist = sorted([f for f in os.listdir(folder) if f.endswith(('.jpg', '.jpeg'))])
+imax = len(ilist) - 1
+
+print("control:\n[space] show annotations or go to next image\n[backspace] go to previous image")
+print("[b] add new bird\n[d] delete last bird\n[s] save\n[q] quit")
 current_index = 0
-
-print("Instructions:")
-print("n - go to next image")
-print("p - go to previous image")
-print("b - Add new bird")
-print("d - Delete last bird")
-print("s - save and go to next image")
-print("q - quit")
 while True:
-    """ Main annotation loop """
-    if current_index < 0: current_index = index_max
-    if current_index > index_max: current_index = 0
-    img_name = image_file[current_index]
-    img_path = os.path.join(image_folder, img_name)
-    print(f"\n{img_folder}{img_name} ({current_index}/{index_max})")
-    direction = annotate_image(img_path, img_name)
-    if not direction is None: current_index += direction
-    # if direction is None:  # Error loading image
-    #     current_index += 1  # Skip to next
-    # else:
-    #     current_index += direction
+    """ main loop """
+    if current_index < 0: current_index = imax
+    if current_index > imax: current_index = 0
+    img_name = ilist[current_index]
+    title = f"\n{folder}/{img_name} ({current_index}/{imax})"
+    print(title)
+    direction = annotate_image(img_name)
+    if not direction is None:
 
-print("\nannotation complete")
-print(f"total birds annotated: {len(annotations)}")
-print(f"saved to {output_csv}")
+        if direction == -1e6: break
+        current_index += direction
+total = 0
+for k in annodict: total += len(annodict[k])
+quit(f"\nannotation complete with {total} annotations from {imax + 1} frames", 0)
