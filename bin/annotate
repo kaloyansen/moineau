@@ -15,7 +15,8 @@ export VECTOR=$POSITIVES.vec
 CLASSIFIER=$DATASET/classifier
 SERVER_IP=192.168.0.104
 
-NUM_STAGES=10
+NUM_STAGES=11
+NUM_VECTORS=240
 
 quit() {
     deactivate
@@ -58,7 +59,10 @@ case $1 in
     train)
 	rm -fv $CLASSIFIER/*.xml
 	find $NEGATIVES -type f -name "*.jpg" > $NEGATIVES.txt
-	opencv_traincascade -data $CLASSIFIER -vec $VECTOR -bg $NEGATIVES.txt -numPos 300 -numNeg $neg -numStages $NUM_STAGES -w 24 -h 24
+	opencv_traincascade -data $CLASSIFIER -vec $VECTOR -bg $NEGATIVES.txt -numPos $NUM_VECTORS -numNeg $neg -numStages $NUM_STAGES -w 24 -h 24
+	;;
+    neg)
+	gwenview
 	;;
     *)
 	$SRC/annotate.py

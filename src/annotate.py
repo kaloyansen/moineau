@@ -57,11 +57,12 @@ def resize_image(img, scale):
 def annotate_image(img_name: str) -> int:
     """ annotate image """
     global title
-    img_path = os.path.join(folder, img_name)
-    img = cv2.imread(img_path)
+    key = f"positives/{img_name}"
+    filepath = os.path.join(folder, img_name)
+    img = cv2.imread(filepath)
     if img is None:
 
-        print(f"cannot read {img_path}")
+        print(f"cannot read {filepath}")
         return 2
     display_img = resize_image(img, scale_factor)
     original_height, original_width = img.shape[:2]
@@ -70,12 +71,16 @@ def annotate_image(img_name: str) -> int:
     cv2.namedWindow(title, cv2.WINDOW_NORMAL)
     cv2.resizeWindow(title, display_width, display_height)
 
-    key = f"positives/{img_name}"
-    if key in annodict.keys(): boxes = annodict[key]
-    else: boxes = []
-    count = len(boxes)
-    print(count, 'annotations found')
-    
+    if key in annodict.keys():
+
+        boxes = annodict[key]
+        count = len(boxes)
+        print(count, 'annotations found')
+    else:
+        boxes = []
+        annodict[key] = boxes
+        print('new image')
+
     while True:
         """ control loop """
         temp_img = display_img.copy()
@@ -88,8 +93,8 @@ def annotate_image(img_name: str) -> int:
             cv2.rectangle(temp_img, (dx, dy), (dx + dw, dy + dh), (255, 0, 255), 2)
             cv2.putText(temp_img, f"{i}", (dx, dy - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
         cv2.imshow(title, temp_img)
-        key = cv2.waitKey(1) & 0xFF
-        if key == ord('b'):
+        button = cv2.waitKey(1) & 0xFF
+        if button == ord('b'):
             """ new object """
             roi = cv2.selectROI(title, display_img, fromCenter = False)
             if roi != (0, 0, 0, 0):
@@ -100,52 +105,68 @@ def annotate_image(img_name: str) -> int:
                 h = int(roi[3] / scale_factor)
                 boxes.append((x, y, w, h))
                 count += 1
-        elif key == ord('d'):
+        elif button == ord('d'):
             """ delete last bird """
             if boxes:
                 boxes.pop()
                 count -= 1
-        elif key == ord('s'):
-            """ save and next """
+        elif button == ord('s'):
+            """ save and open next image """
             save_data()
             cv2.destroyAllWindows()
             return 1
-        elif key == 8:
-            """ previous image """
+        elif button == 8:
+            """ backspace to open previous image """
             cv2.destroyAllWindows()
             return -1
-        elif key == ord(' '):
+        elif button == ord(' '):
             """ next image """
             cv2.destroyAllWindows()
             return 1
-        elif key == ord('q'):
+        elif button == ord('r'):
+            """ remove image """
+            if key in annodict.keys():
+
+                annodict.pop(key, None)
+                save_data()
+            cv2.destroyAllWindows()
+            os.remove(filepath)
+            return 1e6
+        elif button == ord('q'):
             """ quit program """
             cv2.destroyAllWindows()
             return -1e6
-
-
 if not os.path.exists(annofile): quit(f"cannot find {annofile}", 1)
 if not os.path.exists(folder): quit(f"cannot find {folder}", 1)
 shutil.copy(annofile, annobkp)
 load_data()
 ilist = sorted([f for f in os.listdir(folder) if f.endswith(('.jpg', '.jpeg'))])
-imax = len(ilist) - 1
 
 print("control:\n[space] show annotations or go to next image\n[backspace] go to previous image")
-print("[b] add new bird\n[d] delete last bird\n[s] save\n[q] quit")
+print("[b] add new bird\n[d] delete last bird\n[r] remove image\n[s] save\n[q] quit")
 current_index = 0
 while True:
     """ main loop """
-    if current_index < 0: current_index = imax
-    if current_index > imax: current_index = 0
+    if current_index < 0: current_index = len(ilist) - 1
+    if current_index > len(ilist) - 1: current_index = 0
     img_name = ilist[current_index]
-    title = f"\n{folder}/{img_name} ({current_index}/{imax})"
+    title = f"\n{folder}/{img_name} ({current_index}/{len(ilist) - 1})"
     print(title)
     direction = annotate_image(img_name)
     if not direction is None:
 
-        if direction == -1e6: break
-        current_index += direction
+        if direction == -1e6:
+
+            break
+        elif direction == 1e6:
+
+            print('removed', ilist.pop(current_index))
+        else:
+
+            current_index += direction
+    else:
+
+        print('no direction')
 total = 0
 for k in annodict: total += len(annodict[k])
-quit(f"\nannotation complete with {total} annotations from {imax + 1} frames", 0)
+quit(f"\nannotation complete with {total} annotations from {len(ilist)} frames", 0)
