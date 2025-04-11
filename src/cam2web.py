@@ -238,8 +238,13 @@ def label_frame(fr: np.ndarray) -> np.ndarray:
 def analyze_frame(fr: np.ndarray) -> np.ndarray:
 
     gray = cv2.cvtColor(fr, cv2.COLOR_BGR2GRAY)
-    sparrow = cascade[0].detectMultiScale(gray, scaleFactor = 1.1, minNeighbors = 5, minSize=(30, 30))
-#    if len(sparrow) > 0:
+    minNeighbors = 100
+    scaleFactor = 1.1
+    minSize = (30, 30)
+    sparrow = cascade[0].detectMultiScale(gray, scaleFactor = scaleFactor, minNeighbors = minNeighbors, minSize = minSize)
+    len_sparrow = len(sparrow)
+    if len_sparrow > 0:
+        cv2.putText(fr, f"{len_sparrow}/{minNeighbors}", (100, 100), itc.font, 1, (0, 0, 0), 1, 1)
 
 #        save_frame('+')
 #    else:
