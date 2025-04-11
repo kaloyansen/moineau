@@ -62,7 +62,7 @@ case $1 in
 	opencv_traincascade -data $CLASSIFIER -vec $VECTOR -bg $NEGATIVES.txt -numPos $NUM_VECTORS -numNeg $neg -numStages $NUM_STAGES -w 24 -h 24
 	;;
     neg)
-	gwenview
+	gwenview $NEGATIVES
 	;;
     *)
 	$SRC/annotate.py
