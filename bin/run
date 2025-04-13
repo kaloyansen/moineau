@@ -6,7 +6,6 @@ REAL=`realpath $0`
 OU=`dirname $REAL`
 
 export PAGE_TITLE=vrabec.tv
-export FLASK_WORK_DIRECTORY=$OU/..
 export FLASK_WORK_DIRECTORY=`realpath $OU/..`
 export FLASK_SECRET_KEY="68c80c893465f24b2a2151cd9bf9b49c3b9889823bca1a26cabf350864705429"
 export VIDEO_DEVICE=/dev/video0
@@ -24,12 +23,15 @@ export CASCADE_MIN_NEIGHBORS=33
 export CASCADE_SCALE_FACTOR=1.1
 export CASCADE_MIN_SIZE=30
 export CASCADE_CLASSIFIER=$FLASK_WORK_DIRECTORY/dataset/classifier/cascade.xml
+export SLEEPING=1e-2
+export FRAME_SIZE_X=320
+export FRAME_SIZE_Y=240
 
 echo static rute in $FLASK_WORK_DIRECTORY/nginx/conf.d/$FLASK_CODE.conf
 echo initializing python virtual envirenment
 source $FLASK_WORK_DIRECTORY/venv/bin/activate
 
-echo -n starting web application on 0.0.0.0:$FLASK_PORT
+echo starting web application on port $FLASK_PORT
 exec $FLASK_WORK_DIRECTORY/src/$FLASK_CODE.py
 
 # cd $FLASK_WORK_DIRECTORY/src 
