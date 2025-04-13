@@ -40,19 +40,23 @@ class SecureContext:
     """ secure context """
     def __init__(self, birdlives):
         """ load context """
-        self.video_device   =     self.safe("VIDEO_DEVICE")
-        self.log_file       =     self.safe("LOG_FILE")
-        self.work_directory =     self.safe("FLASK_WORK_DIRECTORY")
-        self.page_title     =     self.safe("PAGE_TITLE")
-        self.secret_key     =     self.safe("FLASK_SECRET_KEY")
-        self.audio_dir      =     self.safe("AUDIO_DIRECTORY")
-        self.fps_limit      = int(self.safe("FPS_LIMIT"))
-        self.jpeg_quality   = int(self.safe("JPEG_QUALITY"))
-        self.gevent_workers = int(self.safe("GEVENT_WORKERS"))
-        self.flask_port     = int(self.safe("FLASK_PORT"))
-        self.ban_count      = int(self.safe("IP_BAN_LIST_COUNT"))
-        self.ban_seconds    = int(self.safe("IP_BAN_LIST_SECONDS"))
-        self.save_rand_min  = int(self.safe("SAVE_RANDOM_MINUTES"))
+        self.video_device   =       self.safe("VIDEO_DEVICE")
+        self.log_file       =       self.safe("LOG_FILE")
+        self.work_directory =       self.safe("FLASK_WORK_DIRECTORY")
+        self.page_title     =       self.safe("PAGE_TITLE")
+        self.secret_key     =       self.safe("FLASK_SECRET_KEY")
+        self.audio_dir      =       self.safe("AUDIO_DIRECTORY")
+        self.fps_limit      =   int(self.safe("FPS_LIMIT"))
+        self.jpeg_quality   =   int(self.safe("JPEG_QUALITY"))
+        self.gevent_workers =   int(self.safe("GEVENT_WORKERS"))
+        self.flask_port     =   int(self.safe("FLASK_PORT"))
+        self.ban_count      =   int(self.safe("IP_BAN_LIST_COUNT"))
+        self.ban_seconds    =   int(self.safe("IP_BAN_LIST_SECONDS"))
+        self.save_rand_min  =   int(self.safe("SAVE_RANDOM_MINUTES"))
+        self.minNeighbors   =   int(self.safe("CASCADE_MIN_NEIGHBORS"))
+        self.minSize        =   int(self.safe("CASCADE_MIN_SIZE"))
+        self.scaleFactor    = float(self.safe("CASCADE_SCALE_FACTOR"))
+        self.classifier     =       self.safe("CASCADE_CLASSIFIER")
     def safe(self, var: str):
         """ let it be safe """
         good = os.getenv(var, 0)
@@ -127,9 +131,7 @@ os.makedirs(positives, exist_ok = True)
 os.makedirs(negatives, exist_ok = True)
 os.makedirs(f"{sc.work_directory}/ban", exist_ok = True)
 
-cascade = [cv2.CascadeClassifier(f"{sc.work_directory}/dataset/classifier/cascade.xml"),
-           cv2.CascadeClassifier(f"{sc.work_directory}/cascade/bird1.xml"),
-           cv2.CascadeClassifier(f"{sc.work_directory}/cascade/bird2.xml")]
+cascade = cv2.CascadeClassifier(sc.classifier)
 
 if sc.log_file: logging.basicConfig(level = logging.INFO, encoding = 'utf-8', filename = f"{sc.log_file}")
 else: logging.basicConfig(level = logging.INFO, encoding = 'utf-8')
@@ -237,11 +239,11 @@ def label_frame(fr: np.ndarray) -> np.ndarray:
 
 def analyze_frame(fr: np.ndarray) -> np.ndarray:
 
-    minNeighbors = 33
-    scaleFactor = 1.11
-    minSize = (30, 30)
     gray = cv2.cvtColor(fr, cv2.COLOR_BGR2GRAY)
-    sparrow = cascade[0].detectMultiScale(gray, scaleFactor = scaleFactor, minNeighbors = minNeighbors, minSize = minSize)
+    sparrow = cascade.detectMultiScale(gray,
+                                       scaleFactor = sc.scaleFactor,
+                                       minNeighbors = sc.minNeighbors,
+                                       minSize = (sc.minSize, sc.minSize))
     len_sparrow = len(sparrow)
     #if len_sparrow > 0:
         #cv2.putText(fr, f"{len_sparrow}/{minNeighbors}", (100, 100), itc.font, 1, (0, 0, 0), 1, 1)
