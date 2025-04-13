@@ -16,7 +16,7 @@ CLASSIFIER=$DATASET/classifier
 SERVER_IP=192.168.0.104
 
 NUM_STAGES=11
-NUM_VECTORS=260
+NUM_VECTORS=300
 
 quit() {
     deactivate
@@ -57,6 +57,7 @@ case $1 in
 	$SRC/verify_annotation.py
 	;;
     train)
+	cp $CLASSIFIER/cascade.xml $CLASSIFIER/cascade.old
 	rm -fv $CLASSIFIER/*.xml
 	find $NEGATIVES -type f -name "*.jpg" > $NEGATIVES.txt
 	opencv_traincascade -data $CLASSIFIER -vec $VECTOR -bg $NEGATIVES.txt -numPos $NUM_VECTORS -numNeg $neg -numStages $NUM_STAGES -w 24 -h 24
