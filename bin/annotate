@@ -15,8 +15,8 @@ export VECTOR=$POSITIVES.vec
 CLASSIFIER=$DATASET/classifier
 SERVER_IP=192.168.0.104
 
-NUM_STAGES=11
-NUM_VECTORS=300
+NUM_STAGES=20
+NUM_VECTORS=320 # 354
 
 quit() {
     deactivate
@@ -48,6 +48,7 @@ case $1 in
 	;;
     create)
 	echo `realpath $ANNOTATE_TXT`
+	cp $VECTOR $VECTOR.bkp
 	opencv_createsamples -info $ANNOTATE_TXT -num $pos -w 24 -h 24 -vec $VECTOR
 	;;
     check)
@@ -60,7 +61,7 @@ case $1 in
 	cp $CLASSIFIER/cascade.xml $CLASSIFIER/cascade.old
 	rm -fv $CLASSIFIER/*.xml
 	find $NEGATIVES -type f -name "*.jpg" > $NEGATIVES.txt
-	opencv_traincascade -data $CLASSIFIER -vec $VECTOR -bg $NEGATIVES.txt -numPos $NUM_VECTORS -numNeg $neg -numStages $NUM_STAGES -w 24 -h 24
+	opencv_traincascade -data $CLASSIFIER -vec $VECTOR -bg $NEGATIVES.txt -numPos $NUM_VECTORS -numNeg $neg -numStages $NUM_STAGES -w 24 -h 24 -numThreads 4
 	;;
     neg)
 	gwenview $NEGATIVES
