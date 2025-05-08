@@ -11,9 +11,7 @@ from gevent.pywsgi import WSGIServer
 from gevent.lock import BoundedSemaphore
 import gevent
 from flask import Flask, Response, request, redirect, jsonify, render_template, send_from_directory, url_for
-from flask_ipban import IpBan
 import cv2
-# from markupsafe import escape
 import numpy as np
 import time
 import datetime
@@ -47,8 +45,7 @@ class SecureContext:
         self.jpeg_quality   =   int(self.safe("JPEG_QUALITY"))
         self.gevent_workers =   int(self.safe("GEVENT_WORKERS"))
         self.flask_port     =   int(self.safe("FLASK_PORT"))
-        self.ban_count      =   int(self.safe("IP_BAN_LIST_COUNT"))
-        self.ban_seconds    =   int(self.safe("IP_BAN_LIST_SECONDS"))
+        self.auto_save      =   int(self.safe("AUTO_SAVE"))
         self.save_rand_min  =   int(self.safe("SAVE_RANDOM_MINUTES"))
         self.minNeighbors   =   int(self.safe("CASCADE_MIN_NEIGHBORS"))
         self.minSize        =   int(self.safe("CASCADE_MIN_SIZE"))
@@ -71,6 +68,7 @@ class InterThreadCommunication:
     def __init__(self, font, font_size, weight, save_random):
 
         self.start = self.get_time()
+        self.hit = 0
         self.font = font
         self.font_size = font_size
         self.weight = weight
@@ -204,20 +202,12 @@ def analyze_frame(fr: np.ndarray) -> np.ndarray:
                                        scaleFactor = sc.scaleFactor,
                                        minNeighbors = sc.minNeighbors,
                                        minSize = (sc.minSize, sc.minSize))
-    len_sparrow = len(sparrow)
-    #if len_sparrow > 0:
-        #cv2.putText(fr, f"{len_sparrow}/{minNeighbors}", (100, 100), itc.font, 1, (0, 0, 0), 1, 1)
-
-#        save_frame('+')
-#    else:
-
-#        save_frame('-')
-
+    itc.hit = len(sparrow)
     spindex = 0
     for (x, y, w, h) in sparrow:
 
-        cv2.rectangle(fr, (x, y), (x + w, y + h), (255, 255, 0), 1)
-        cv2.putText(fr, f"{spindex} {itc.wheel()}", (x, y + 12), itc.font, 0.5, (255, 255, 0), 1, cv2.LINE_AA)
+        cv2.rectangle(fr, (x, y), (x + w, y + h), (0, 0, 0), 1)
+        #cv2.putText(fr, f"{spindex} {itc.wheel()}", (x, y + 12), itc.font, 0.5, (0, 0, 0), 1, cv2.LINE_AA)
         spindex += 1
     return fr
 
@@ -269,7 +259,7 @@ def read_stream():
 
             itc.raw = raw_frame_resized
             itc.frame = processed_frame # .copy()
-        if itc.new_frame(): save_frame('-', '.random')
+        if itc.new_frame() and sc.auto_save and itc.hit > 0: save_frame('-', '.random')
         itc.fps_value = 1 / (time.perf_counter() - read_count)
         itc.save_random = int(itc.fps_value * sc.save_rand_min * 60)
         read_count = time.perf_counter()
@@ -329,7 +319,6 @@ def access_source_code():
 
             src = f.read()
         size = len(src.splitlines())
-        # escaped_code = escape(src)
         hi_code = highlight(src, PythonLexer(), formatter)
         return render_template('code.html', code = hi_code, size = size)
     except Exception as e:
@@ -398,12 +387,10 @@ def before_request():
     met = request.method
     if met != 'GET':
 
-        ip_ban.block(ip)
         server.logger.warning(f"method not allowed - save {ip} as banned and return error")
         return "method not allowed {met}", 403
     elif is_not_ascii(met) or is_not_ascii(fp):
 
-        ip_ban.block(ip)
         server.logger.warning(f"non-ascii request - save {ip} as banned and return error")
         return "non-ascii characters in request", 403
     else:
@@ -442,10 +429,6 @@ if __name__ == '__main__':
     cascade = cv2.CascadeClassifier(sc.classifier)
     if sc.log_file: logging.basicConfig(level = logging.INFO, encoding = 'utf-8', filename = f"{sc.log_file}")
     else: logging.basicConfig(level = logging.INFO, encoding = 'utf-8')
-    ip_ban = IpBan(ban_count = sc.ban_count, ban_seconds = sc.ban_seconds, persist = True, record_dir = f"{sc.work_directory}/ban")
-    ip_ban.init_app(server)
-    ip_ban.load_allowed()
-    ip_ban.load_nuisances()
     itc = InterThreadCommunication(cv2.FONT_HERSHEY_DUPLEX, 0.4, sc.frame_size_x, sc.fps_limit * sc.save_rand_min * 60)
     itc.default_message = f"minn {sc.minNeighbors} scf {sc.scaleFactor} mins {sc.minSize} +{itc.pos} -{itc.neg}"
     bs_lock = BoundedSemaphore()
