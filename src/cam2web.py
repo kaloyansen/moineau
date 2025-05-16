@@ -5,7 +5,7 @@
 # music composed, orchestrated and conducted by Kaloyan Krastev 
 
 from gevent import monkey
-monkey.patch_all()
+monkey.patch_thread()
 from gevent.pool import Pool
 from gevent.pywsgi import WSGIServer
 from gevent.lock import BoundedSemaphore
